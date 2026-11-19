@@ -1,0 +1,438 @@
+{
+  "version": 2,
+  "restaurant": "O Saveurs Braisees",
+  "dishes": [
+    {
+      "category": "formules",
+      "name": "Formule Perso",
+      "price": "11,90 €",
+      "description": "½ poulet braisé, 1 accompagnement, 1 sauce verte et 1 boisson 33 cl.",
+      "note": ""
+    },
+    {
+      "category": "formules",
+      "name": "Formule Duo",
+      "price": "21,90 €",
+      "description": "1 poulet braisé, 2 accompagnements, 2 sauces vertes et 2 boissons 33 cl.",
+      "note": ""
+    },
+    {
+      "category": "formules",
+      "name": "Formule Family",
+      "price": "34,00 €",
+      "description": "2 poulets braisés, 2 accompagnements XL, 4 sauces vertes et 1 bouteille 1 L.",
+      "note": ""
+    },
+    {
+      "category": "burgers",
+      "name": "Hamburger poulet — menu",
+      "price": "11,90 €",
+      "description": "Avec frites et boisson 33 cl.",
+      "note": ""
+    },
+    {
+      "category": "burgers",
+      "name": "Hamburger poulet — seul",
+      "price": "8,90 €",
+      "description": "Poulet mariné, cheddar, laitue, cornichons, tomate, oignon rouge, sauce verte.",
+      "note": ""
+    },
+    {
+      "category": "burgers",
+      "name": "Hamburger steak — menu",
+      "price": "11,90 €",
+      "description": "Avec frites et boisson 33 cl.",
+      "note": ""
+    },
+    {
+      "category": "burgers",
+      "name": "Hamburger steak — seul",
+      "price": "9,50 €",
+      "description": "Steak, cheddar fondu, laitue, cornichons, tomate, oignon rouge, sauce verte.",
+      "note": ""
+    },
+    {
+      "category": "burgers",
+      "name": "Supplément œuf",
+      "price": "1,00 €",
+      "description": "Pour les burgers.",
+      "note": ""
+    },
+    {
+      "category": "sandwichs",
+      "name": "Sandwich poulet",
+      "price": "7,90 €",
+      "description": "Poulet mariné, poivron, laitue, tomate, oignon rouge, cheddar, sauce verte.",
+      "note": ""
+    },
+    {
+      "category": "sandwichs",
+      "name": "Sandwich bœuf",
+      "price": "8,90 €",
+      "description": "Bœuf, poivron, laitue, tomate, oignon rouge, cheddar, sauce verte.",
+      "note": ""
+    },
+    {
+      "category": "sandwichs",
+      "name": "Pastels ×6",
+      "price": "5,90 €",
+      "description": "Petits chaussons farcis, par six.",
+      "note": ""
+    },
+    {
+      "category": "sandwichs",
+      "name": "Poké Tieb",
+      "price": "12,90 €",
+      "description": "Poké Tieb.",
+      "note": ""
+    },
+    {
+      "category": "plats",
+      "name": "Tagliatelles au saumon",
+      "price": "9,50 €",
+      "description": "Saumon, crème fluide et aneth.",
+      "note": ""
+    },
+    {
+      "category": "plats",
+      "name": "Tagliatelles fermières",
+      "price": "7,90 €",
+      "description": "Poulet, crème fluide.",
+      "note": ""
+    },
+    {
+      "category": "plats",
+      "name": "Tagliatelles carbonara",
+      "price": "9,50 €",
+      "description": "Lardons de dinde, crème fluide, avec ou sans œuf.",
+      "note": ""
+    },
+    {
+      "category": "plats",
+      "name": "Escalope façon saltimbocca",
+      "price": "12,00 €",
+      "description": "Escalope de dinde à la façon saltimbocca.",
+      "note": ""
+    },
+    {
+      "category": "plats",
+      "name": "Escalope chèvre miel",
+      "price": "12,00 €",
+      "description": "Escalope de dinde, crème fraîche, chèvre et miel.",
+      "note": ""
+    },
+    {
+      "category": "plats",
+      "name": "Escalope à la moutarde",
+      "price": "12,00 €",
+      "description": "Escalope de dinde, crème fraîche et moutarde de Dijon.",
+      "note": ""
+    },
+    {
+      "category": "salades",
+      "name": "Salade Océane",
+      "price": "7,90 €",
+      "description": "Salade, saumon fumé, emmental, tomate.",
+      "note": ""
+    },
+    {
+      "category": "salades",
+      "name": "Salade du Chef",
+      "price": "7,50 €",
+      "description": "Salade, tomate, maïs, escalope de dinde, emmental.",
+      "note": ""
+    },
+    {
+      "category": "salades",
+      "name": "Salade Paysanne",
+      "price": "7,00 €",
+      "description": "Salade, tomate, poulet, maïs, emmental.",
+      "note": ""
+    },
+    {
+      "category": "texmex",
+      "name": "Wings ×8",
+      "price": "5,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "texmex",
+      "name": "Wings ×16",
+      "price": "10,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "texmex",
+      "name": "Pilons ×4",
+      "price": "6,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "texmex",
+      "name": "Pilons ×8",
+      "price": "11,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "texmex",
+      "name": "Tenders ×4",
+      "price": "5,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "texmex",
+      "name": "Tenders ×8",
+      "price": "10,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "texmex",
+      "name": "Menu enfants",
+      "price": "6,00 €",
+      "description": "Menu enfants : cheese ou tenders, frites et Capri-Sun.",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Allocos — normal",
+      "price": "4,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Allocos — XL",
+      "price": "5,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Pommes de terre sautées — normal",
+      "price": "3,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Pommes de terre sautées — XL",
+      "price": "5,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Riz blanc — normal",
+      "price": "3,00 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Riz blanc — XL",
+      "price": "5,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Riz tieb — normal",
+      "price": "4,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Riz tieb — XL",
+      "price": "5,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Frites — normal",
+      "price": "3,00 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Frites — XL",
+      "price": "5,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Frites de patate douce — normal",
+      "price": "4,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Frites de patate douce — XL",
+      "price": "5,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Haricots verts — normal",
+      "price": "3,00 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Haricots verts — XL",
+      "price": "5,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Potatoes — normal",
+      "price": "3,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "accompagnements",
+      "name": "Potatoes — XL",
+      "price": "5,90 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "desserts",
+      "name": "Tarte aux pommes",
+      "price": "2,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "desserts",
+      "name": "Tarte aux poires",
+      "price": "2,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "desserts",
+      "name": "Tarte aux daims",
+      "price": "2,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "desserts",
+      "name": "Tiramisu au choix",
+      "price": "2,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "desserts",
+      "name": "Glace Häagen-Dazs 100 ml",
+      "price": "3,00 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "desserts",
+      "name": "Glace Häagen-Dazs 500 ml",
+      "price": "6,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "boissons",
+      "name": "Boisson 33 cl",
+      "price": "1,80 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "boissons",
+      "name": "Boisson 1,25 L",
+      "price": "3,00 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "boissons",
+      "name": "Boisson 2 L",
+      "price": "3,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "boissons",
+      "name": "Bissap 33 cl",
+      "price": "3,50 €",
+      "description": "",
+      "note": ""
+    },
+    {
+      "category": "boissons",
+      "name": "Jus de gingembre 33 cl",
+      "price": "3,50 €",
+      "description": "",
+      "note": ""
+    }
+  ],
+  "categories": [
+    {
+      "id": "formules",
+      "name": "Formules braisées",
+      "visible": true
+    },
+    {
+      "id": "burgers",
+      "name": "Burgers",
+      "visible": true
+    },
+    {
+      "id": "sandwichs",
+      "name": "Sandwichs",
+      "visible": true
+    },
+    {
+      "id": "plats",
+      "name": "Pâtes & escalopes",
+      "visible": true
+    },
+    {
+      "id": "salades",
+      "name": "Salades",
+      "visible": true
+    },
+    {
+      "id": "texmex",
+      "name": "Tex-Mex",
+      "visible": true
+    },
+    {
+      "id": "accompagnements",
+      "name": "Accompagnements",
+      "visible": true
+    },
+    {
+      "id": "desserts",
+      "name": "Desserts",
+      "visible": true
+    },
+    {
+      "id": "boissons",
+      "name": "Boissons",
+      "visible": true
+    }
+  ]
+}

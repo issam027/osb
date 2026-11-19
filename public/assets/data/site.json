@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "phone": "01 41 36 01 93",
+  "hours": [
+    {
+      "day": "Lundi",
+      "closed": false,
+      "slots": [
+        {
+          "open": "10:30",
+          "close": "14:30"
+        },
+        {
+          "open": "18:00",
+          "close": "22:30"
+        }
+      ]
+    },
+    {
+      "day": "Mardi",
+      "closed": false,
+      "slots": [
+        {
+          "open": "10:30",
+          "close": "14:30"
+        },
+        {
+          "open": "18:00",
+          "close": "22:30"
+        }
+      ]
+    },
+    {
+      "day": "Mercredi",
+      "closed": false,
+      "slots": [
+        {
+          "open": "10:30",
+          "close": "14:30"
+        },
+        {
+          "open": "18:00",
+          "close": "22:30"
+        }
+      ]
+    },
+    {
+      "day": "Jeudi",
+      "closed": false,
+      "slots": [
+        {
+          "open": "10:30",
+          "close": "14:30"
+        },
+        {
+          "open": "18:00",
+          "close": "22:30"
+        }
+      ]
+    },
+    {
+      "day": "Vendredi",
+      "closed": false,
+      "slots": [
+        {
+          "open": "10:30",
+          "close": "14:30"
+        },
+        {
+          "open": "18:00",
+          "close": "22:30"
+        }
+      ]
+    },
+    {
+      "day": "Samedi",
+      "closed": false,
+      "slots": [
+        {
+          "open": "10:30",
+          "close": "14:30"
+        },
+        {
+          "open": "18:00",
+          "close": "22:30"
+        }
+      ]
+    },
+    {
+      "day": "Dimanche",
+      "closed": true,
+      "slots": []
+    }
+  ],
+  "announcement": {
+    "enabled": false,
+    "title": "",
+    "message": "",
+    "start": "",
+    "end": ""
+  }
+}
