@@ -293,6 +293,8 @@ function setDishHash(hash){
   try { history.replaceState(null,'',hash); } catch(err) { console.warn('Lien du plat non mis à jour',err); }
 }
 const detailDialog=$('detail-overlay');
+const detailPhoto=$('detail-photo');
+detailPhoto.addEventListener('error',()=>{detailPhoto.hidden=true});
 function openDetail(id,trigger=null){
   const d=catalog.find(x=>String(x.id)===String(id)&&x.visible&&!hiddenCategories.has(x.category));
   if(!d)return;
@@ -300,6 +302,10 @@ function openDetail(id,trigger=null){
   if(!detailDialog.open)lastDetailFocus=trigger;
   document.getElementById('detail-category').textContent=CATEGORIES[d.category]||d.category;
   document.getElementById('detail-title').textContent=d.name;
+  detailPhoto.hidden=!d.image;
+  detailPhoto.alt=d.image?d.name:'';
+  if(d.image)detailPhoto.src=d.image;
+  else detailPhoto.removeAttribute('src');
   document.getElementById('detail-description').textContent=d.description||'Pour connaître la composition et les options, contactez directement le restaurant.';
   document.getElementById('detail-price').textContent=d.price;
   const share=$('detail-share');
