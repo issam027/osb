@@ -10,7 +10,7 @@ Site du restaurant de poulet braisé à Meudon-la-Forêt. Les clients consultent
 
 1. Filtre la carte par catégorie, puis ouvre **Découvrir le plat** pour voir sa composition, son prix et ses photos. La fiche peut être partagée par lien. Les photos défilent avec les flèches ou par balayage sur mobile.
 2. Ajoute les plats à **Ma liste**. Ajuste les quantités et ajoute au besoin une note par ligne, par exemple « sans oignons ». La liste et les notes sont conservées dans le navigateur.
-3. Choisis **À emporter** ou **Livraison**. Le site affiche un total indicatif et tient compte du tarif de livraison configuré. Les prix ou frais inconnus restent à confirmer.
+3. Choisis **À emporter** ou **Livraison**. Le site affiche un total indicatif comprenant les suppléments sélectionnés et les frais de livraison configurés. Les prix ou frais inconnus restent à confirmer.
 4. Appelle le restaurant pour confirmer les plats, le montant et les modalités. **Copier ma liste** inclut les quantités, les notes et le mode choisi. Le site ne transmet aucune commande et ne collecte aucun paiement.
 
 Quand la liste est vide, l’écran illustré propose **Voir la carte**. La flèche **↑** remonte en haut de la page en un appui.
@@ -21,7 +21,7 @@ Ouvre **Espace pro** en bas du site et connecte-toi avec le compte `admin`. Les 
 
 | Onglet | Ce que tu peux modifier |
 | --- | --- |
-| **Plats** | Ajouter, modifier, masquer ou supprimer un plat. Saisis le prix sans symbole, par exemple `12,50`. Tu peux coller jusqu’à huit liens de photos, un par ligne. La première photo illustre la carte. |
+| **Plats** | Ajouter, modifier, masquer ou supprimer un plat. Saisis le prix sans symbole, par exemple `12,50`. Tu peux choisir des photos sur ton appareil ou coller des liens, jusqu’à huit photos par plat. La première photo illustre la carte. Configure aussi les suppléments autorisés et leur prix. |
 | **Catégories** | Ajouter, renommer, réordonner ou masquer les catégories. Masquer une catégorie retire aussi ses plats de la carte publique en les conservant dans l’Espace pro. |
 | **Horaires** | Modifier le téléphone public et jusqu’à deux créneaux par jour. La case **Fermé** masque les champs d’heures du jour. |
 | **Annonces** | Programmer un bandeau public avec un titre, un message et une période. Les dates de début et de fin sont incluses. Pour retirer l’annonce, désactive-la et enregistre. |
@@ -41,7 +41,7 @@ Certaines photos de la galerie du restaurant servent de photos par défaut. Les 
 | [`src/worker.js`](src/worker.js) | Lecture des données publiques, validation des modifications et sessions de l’Espace pro. |
 | [`wrangler.jsonc`](wrangler.jsonc) | Configuration du Worker et de son stockage. |
 
-Le Worker Cloudflare `osaveursbraisees` sert les fichiers publics et les routes `/api/*`. Le binding `OSB_KV` relie le Worker au namespace `OSB_DATA`. `osb:menu` contient les plats et catégories. `osb:site` contient le téléphone, les horaires, l’annonce et la livraison. Les écritures nécessitent une session administrateur. Un redéploiement du code conserve les données publiées dans KV.
+Le Worker Cloudflare `osaveursbraisees` sert les fichiers publics et les routes `/api/*`. Le binding `OSB_KV` relie le Worker au namespace `OSB_DATA`. `osb:menu` contient les plats et catégories. `osb:site` contient le téléphone, les horaires, l’annonce et la livraison. Les photos envoyées depuis l’Espace pro sont compressées en WebP et stockées séparément sous des clés `osb:photo:*`. Le menu conserve leurs chemins. Les écritures nécessitent une session administrateur. Un redéploiement du code conserve les données publiées dans KV.
 
 ## Développer et déployer
 
