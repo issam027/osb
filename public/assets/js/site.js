@@ -304,12 +304,16 @@ function openDetail(id,trigger=null){
   const share=$('detail-share');
   share.href='#plat='+encodeURIComponent(d.id);
   share.textContent='Partager ce plat ↗';
-  if(!detailDialog.open)detailDialog.showModal();
+  if(!detailDialog.open){
+    detailDialog.hidden=false;
+    detailDialog.showModal();
+  }
   detailDialog.scrollTop=0;
 }
 function closeDetail(){
   if(!detailDialog.open)return;
   detailDialog.close();
+  detailDialog.hidden=true;
   if(location.hash.startsWith('#plat='))setDishHash('#carte');
   if(lastDetailFocus?.isConnected)lastDetailFocus.focus({preventScroll:true});
   selectedDish=null;
@@ -582,7 +586,7 @@ loadMenu();
 /* V23 : verrouillage du défilement synchronisé avec les fenêtres réellement ouvertes */
 function syncPageScroll(){
  const ids=['admin-shell','cart-overlay','photo-lightbox'];
- const opened=ids.some(id=>{const n=document.getElementById(id);return n&&!n.hidden});
+ const opened=ids.some(id=>{const n=document.getElementById(id);return n&&!n.hidden&&n.getClientRects().length>0});
  document.body.style.overflow=opened?'hidden':'';
  document.documentElement.style.overflow='';
 }
@@ -592,6 +596,7 @@ scrollOverlayIds.forEach(id=>{
  if(n)new MutationObserver(syncPageScroll).observe(n,{attributes:true,attributeFilter:['hidden']});
 });
 window.addEventListener('pageshow',syncPageScroll);
+document.addEventListener('visibilitychange',syncPageScroll);
 window.addEventListener('hashchange',()=>requestAnimationFrame(syncPageScroll));
 document.addEventListener('keydown',e=>{
  if(e.key!=='Escape')return;
