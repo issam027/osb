@@ -284,12 +284,15 @@ function cartEstimate(rows){
 function estimateText({total,unknown}){
  return unknown?(total?euro(total/100)+' + montant à confirmer':'À confirmer'):euro(total/100);
 }
+function showDishQuantity(badge,id){
+ const qty=Math.max(0,Math.min(99,Number(callCart[id])||0));
+ const label=qty?`${qty} dans ma liste`:'';
+ badge.hidden=!qty;
+ if(badge.textContent!==label)badge.textContent=label;
+}
 function updateDishQuantities(){
  for(const badge of document.querySelectorAll('#menu-grid [data-list-qty]')){
-  const qty=Math.max(0,Math.min(99,Number(callCart[badge.dataset.listQty])||0));
-  const label=qty?`${qty} dans ma liste`:'';
-  badge.hidden=!qty;
-  if(badge.textContent!==label)badge.textContent=label;
+  showDishQuantity(badge,badge.dataset.listQty);
  }
 }
 function addDishToCart(id){
@@ -414,6 +417,7 @@ function openDetail(id,trigger=null){
   showDetailPhoto(0);
   document.getElementById('detail-description').textContent=d.description||'Pour connaître la composition et les options, contactez directement le restaurant.';
   document.getElementById('detail-price').textContent=d.price;
+  showDishQuantity($('detail-list-qty'),d.id);
   const share=$('detail-share');
   share.href='#plat='+encodeURIComponent(d.id);
   share.textContent='Partager ↗';
