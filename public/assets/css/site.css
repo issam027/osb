@@ -300,3 +300,7 @@ body{overflow-x:hidden}
 .dish-uploaded-photos>div{display:grid;gap:4px;width:90px}
 .dish-uploaded-photos img{width:90px;height:64px;object-fit:cover;border-radius:6px}
 .dish-uploaded-photos .a-btn{padding:6px;font-size:12px}
+
+.detail-order-note summary{color:#74371f}
+.detail-order-note textarea{background:#fffaf2;color:#221b16}
+.cart-note-save{margin-top:6px;min-height:40px;border:1px solid #b88c69;border-radius:6px;background:#36241a;color:#fff;padding:5px 10px;cursor:pointer}

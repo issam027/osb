@@ -9,7 +9,7 @@ Site du restaurant de poulet braisé à Meudon-la-Forêt. Les clients consultent
 ## Préparer une commande
 
 1. Filtre la carte par catégorie, puis ouvre **Découvrir le plat** pour voir sa composition, son prix et ses photos. La fiche peut être partagée par lien. Les photos défilent avec les flèches ou par balayage sur mobile.
-2. Ajoute les plats à **Ma liste**. Ajuste les quantités et ajoute au besoin une note par ligne, par exemple « sans oignons ». La liste et les notes sont conservées dans le navigateur.
+2. Ajoute les plats à **Ma liste**. Personnalise chaque portion avec des suppléments ou une note, par exemple « sans oignons ». La liste regroupe seulement les portions du même plat dont les options et la note sont identiques. La liste et les notes sont conservées dans le navigateur.
 3. Choisis **À emporter** ou **Livraison**. Le site affiche un total indicatif comprenant les suppléments sélectionnés et les frais de livraison configurés. Les prix ou frais inconnus restent à confirmer.
 4. Appelle le restaurant pour confirmer les plats, le montant et les modalités. **Copier ma liste** inclut les quantités, les notes et le mode choisi. Le site ne transmet aucune commande et ne collecte aucun paiement.
 

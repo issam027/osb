@@ -411,46 +411,72 @@ const oldDrawAdmin=drawAdmin;
 drawAdmin=function(){oldDrawAdmin();drawCategories()};
 
 /* Liste de commande locale, sans transmission automatique */
-const CART_KEY='osaveurs-call-list-v1';
-const CART_NOTES_KEY='osaveurs-call-notes-v1';
+const CART_KEY='osaveurs-call-list-v2';
 let deliveryPricing=null;
-let cartNotes=Object.create(null);
-try{Object.assign(cartNotes,JSON.parse(localStorage.getItem(CART_NOTES_KEY)))}catch(e){}
-function saveCartNotes(){try{localStorage.setItem(CART_NOTES_KEY,JSON.stringify(cartNotes))}catch(e){}}
-function cartNote(id){return typeof cartNotes[id]==='string'?cartNotes[id].slice(0,200):''}
-const cartExtras=Object.create(null);
-try{Object.assign(cartExtras,JSON.parse(localStorage.getItem('osaveurs-call-extras-v1')))}catch(e){}
-function saveCartExtras(){try{localStorage.setItem('osaveurs-call-extras-v1',JSON.stringify(cartExtras))}catch(e){}}
-function selectedExtras(dish){
- const names=Array.isArray(cartExtras[dish.id])?cartExtras[dish.id]:[];
+let nextCartLineId=0;
+function cartLine(dishId,qty=1,note='',extras=[]){
+ return {
+  id:String(++nextCartLineId),dishId,
+  qty:Math.min(99,Math.max(0,Math.floor(Number(qty)||0))),
+  note:typeof note==='string'?note.trim().slice(0,200):'',
+  extras:Array.isArray(extras)?[...new Set(extras.filter(name=>typeof name==='string'))].sort():[]
+ };
+}
+function readCartStorage(key){
+ try{return JSON.parse(localStorage.getItem(key))}catch{return null}
+}
+function loadCart(){
+ const saved=readCartStorage(CART_KEY);
+ if(Array.isArray(saved)){
+  return saved.filter(line=>line&&typeof line.dishId==='string')
+   .map(line=>cartLine(line.dishId,line.qty,line.note,line.extras)).filter(line=>line.qty);
+ }
+ const legacy=readCartStorage('osaveurs-call-list-v1')||{};
+ const notes=readCartStorage('osaveurs-call-notes-v1')||{};
+ const extras=readCartStorage('osaveurs-call-extras-v1')||{};
+ return Object.entries(legacy).map(([id,qty])=>cartLine(id,qty,notes[id],extras[id])).filter(line=>line.qty);
+}
+let callCart=loadCart();
+function saveCallCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(callCart))}catch(e){}}
+function selectedExtras(dish,names){
  return dish.extras.filter(extra=>names.includes(extra.name));
 }
-function extraChoices(dish,forCart=false){
+function extraChoices(dish,names=[]){
  if(!dish.extras.length)return '';
- const names=new Set(selectedExtras(dish).map(extra=>extra.name));
  return `<fieldset class="extra-choices"><legend>Suppléments par portion</legend>${dish.extras.map(extra=>
-  `<label><input type="checkbox" value="${escapeHTML(extra.name)}" ${names.has(extra.name)?'checked':''}> <span>${escapeHTML(extra.name)} · +${euro(extra.price/100)}</span></label>`
- ).join('')}${forCart?'':'<small>Le choix s’applique à toutes les portions de ce plat dans votre liste.</small>'}</fieldset>`;
+  `<label><input type="checkbox" value="${escapeHTML(extra.name)}" ${names.includes(extra.name)?'checked':''}> <span>${escapeHTML(extra.name)} · +${euro(extra.price/100)}</span></label>`
+ ).join('')}</fieldset>`;
 }
 function checkedExtras(host){
- return [...host.querySelectorAll('input:checked')].map(input=>input.value);
-}
-function storeExtras(id,host){
- cartExtras[id]=checkedExtras(host);
- saveCartExtras();
+ return [...host.querySelectorAll('input:checked')].map(input=>input.value).sort();
 }
 function isDelivery(){return document.querySelector('[name="cart-fulfillment"]:checked').value==='delivery'}
-let callCart={};try{const saved=JSON.parse(localStorage.getItem(CART_KEY));if(saved&&typeof saved==='object'&&!Array.isArray(saved))callCart=saved}catch(e){}
-function saveCallCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(callCart))}catch(e){}}
-function cartEntries(){return Object.entries(callCart).map(([id,qty])=>({dish:catalog.find(d=>d.id===id&&d.visible&&!hiddenCategories.has(d.category)),qty:Math.max(0,Math.min(99,Number(qty)||0))})).filter(x=>x.dish&&x.qty>0)}
+function cartEntries(){
+ return callCart.map(line=>({
+  ...line,dish:catalog.find(d=>d.id===line.dishId&&d.visible&&!hiddenCategories.has(d.category))
+ })).filter(line=>line.dish);
+}
+function sameCustomization(first,second){
+ if(first.dishId!==second.dishId||first.note!==second.note)return false;
+ const dish=catalog.find(item=>item.id===first.dishId);
+ if(!dish)return false;
+ return dish.extras.every(extra=>first.extras.includes(extra.name)===second.extras.includes(extra.name));
+}
+function mergeCartLine(line){
+ const other=callCart.find(candidate=>candidate!==line&&candidate.qty+line.qty<=99&&sameCustomization(candidate,line));
+ if(!other)return false;
+ other.qty+=line.qty;
+ callCart=callCart.filter(candidate=>candidate!==line);
+ return true;
+}
 function amount(price){const m=String(price).replace(/\s/g,'').match(/^(\d+(?:[,.]\d{1,2})?)€/);return m?Number(m[1].replace(',','.')):null}
 function euro(n){return n.toLocaleString('fr-FR',{style:'currency',currency:'EUR'})}
 function cartEstimate(rows){
  let subtotal=0,unknown=false;
- for(const {dish,qty} of rows){
+ for(const {dish,qty,extras:names} of rows){
   const price=amount(dish.price);
   if(price===null)unknown=true;
-  const extras=selectedExtras(dish).reduce((sum,extra)=>sum+extra.price,0);
+  const extras=selectedExtras(dish,names).reduce((sum,extra)=>sum+extra.price,0);
   subtotal+=(Math.round((price??0)*100)+extras)*qty;
  }
  if(!isDelivery())return {total:subtotal,unknown,deliveryText:''};
@@ -467,7 +493,7 @@ function estimateText({total,unknown}){
  return unknown?(total?euro(total/100)+' + montant à confirmer':'À confirmer'):euro(total/100);
 }
 function showDishQuantity(badge,id){
- const qty=Math.max(0,Math.min(99,Number(callCart[id])||0));
+ const qty=callCart.reduce((total,line)=>total+(line.dishId===id?line.qty:0),0);
  const label=qty?`${qty} dans ma liste`:'';
  badge.hidden=!qty;
  if(badge.textContent!==label)badge.textContent=label;
@@ -477,8 +503,10 @@ function updateDishQuantities(){
   showDishQuantity(badge,badge.dataset.listQty);
  }
 }
-function addDishToCart(id){
- callCart[id]=Math.min(99,(Number(callCart[id])||0)+1);
+function addDishToCart(id,note='',extras=[]){
+ const line=cartLine(id,1,note,extras);
+ callCart.push(line);
+ mergeCartLine(line);
  saveCallCart();
 }
 function updateCart(){
@@ -490,13 +518,13 @@ function updateCart(){
  $('cart-content').hidden=empty;
  if(empty&&focusWasInside)$('cart-browse').focus({preventScroll:true});
  $('cart-count').textContent=rows.reduce((count,row)=>count+row.qty,0);
- $('cart-lines').innerHTML=rows.map(({dish:d,qty})=>{
-  const id=escapeHTML(d.id);
+ $('cart-lines').innerHTML=rows.map(({dish:d,qty,id,note:lineNote,extras})=>{
   const name=escapeHTML(d.name);
-  const note=escapeHTML(cartNote(d.id));
+  const note=escapeHTML(lineNote);
   return `<div class="cart-line" data-line-id="${id}"><div><strong>${name}</strong><small>${escapeHTML(d.price)} · ${escapeHTML(CATEGORIES[d.category])}</small>
-  <details class="cart-note"><summary>${note?'Modifier la note':'Ajouter une note'}</summary><textarea rows="2" maxlength="200" data-note-id="${id}" aria-label="Note pour ${name}" placeholder="Par exemple : sans oignons">${note}</textarea></details>
-  <p class="cart-note-preview" ${note?'':'hidden'}>${note}</p>${extraChoices(d,true)}</div>
+  <details class="cart-note"><summary>${note?'Modifier la note':'Ajouter une note'}</summary><textarea rows="2" maxlength="200" data-note-id="${id}" aria-label="Note pour ${name}" placeholder="Par exemple : sans oignons">
+${note}</textarea><button class="cart-note-save" type="button">Valider la note</button></details>
+  <p class="cart-note-preview" ${note?'':'hidden'}>${note}</p>${extraChoices(d,extras)}</div>
   <div class="cart-qty"><button type="button" data-cart-id="${id}" data-delta="-1" aria-label="Retirer un ${name}">−</button><span>${qty}</span><button type="button" data-cart-id="${id}" data-delta="1" aria-label="Ajouter un ${name}">+</button></div></div>`;
  }).join('');
  updateCartTotals(rows);
@@ -508,26 +536,40 @@ function updateCartTotals(rows){
  $('cart-total').textContent=rows.length?estimateText(estimate):euro(0);
 }
 document.querySelector('.cart-fulfillment').addEventListener('change',updateCart);
+function cartLineForElement(element){
+ return callCart.find(line=>line.id===element.closest('[data-line-id]')?.dataset.lineId);
+}
 $('cart-lines').addEventListener('change',event=>{
  const choices=event.target.closest('.extra-choices');
  if(!choices)return;
- storeExtras(choices.closest('[data-line-id]').dataset.lineId,choices);
- updateCartTotals(cartEntries());
+ const line=cartLineForElement(choices);
+ if(!line)return;
+ line.extras=checkedExtras(choices);
+ const merged=mergeCartLine(line);
+ saveCallCart();
+ if(merged){
+  updateCart();
+  $('cart-close').focus({preventScroll:true});
+ }else updateCartTotals(cartEntries());
 });
 $('cart-lines').addEventListener('input',event=>{
  const field=event.target.closest('[data-note-id]');
  if(!field)return;
- const note=field.value.trim();
- if(note)cartNotes[field.dataset.noteId]=note;
- else delete cartNotes[field.dataset.noteId];
- const line=field.closest('.cart-line');
- const preview=line.querySelector('.cart-note-preview');
- preview.textContent=note;
- preview.hidden=!note;
- line.querySelector('summary').textContent=note?'Modifier la note':'Ajouter une note';
- saveCartNotes();
+ const line=cartLineForElement(field);
+ if(!line)return;
+ line.note=field.value.trim();
+ const row=field.closest('.cart-line');
+ const preview=row.querySelector('.cart-note-preview');
+ preview.textContent=line.note;
+ preview.hidden=!line.note;
+ row.querySelector('summary').textContent=line.note?'Modifier la note':'Ajouter une note';
+ saveCallCart();
 });
-function openCart(){document.getElementById('cart-overlay').hidden=false;syncPageScroll();updateCart();document.getElementById('cart-close').focus()}
+function openCart(){
+ let merged=false;
+ for(const line of [...callCart])if(mergeCartLine(line))merged=true;
+ if(merged)saveCallCart();
+ document.getElementById('cart-overlay').hidden=false;syncPageScroll();updateCart();document.getElementById('cart-close').focus()}
 function closeCart(){document.getElementById('cart-overlay').hidden=true;syncPageScroll();document.getElementById('cart-launch').focus()}
 $('menu-grid').addEventListener('click',event=>{
  const button=event.target.closest('[data-add-id]');
@@ -539,14 +581,42 @@ document.getElementById('cart-launch').addEventListener('click',openCart);
 document.getElementById('cart-close').addEventListener('click',closeCart);
 $('cart-browse').addEventListener('click',closeCart);
 document.getElementById('cart-overlay').addEventListener('click',e=>{if(e.target.id==='cart-overlay')closeCart()});
-document.getElementById('cart-lines').addEventListener('click',e=>{const b=e.target.closest('[data-cart-id]');if(!b)return;const id=b.dataset.cartId;callCart[id]=Math.max(0,Math.min(99,(Number(callCart[id])||0)+Number(b.dataset.delta)));if(!callCart[id]){delete callCart[id];delete cartNotes[id];delete cartExtras[id];saveCartNotes();saveCartExtras()}saveCallCart();updateCart()});
-document.getElementById('cart-clear').addEventListener('click',()=>{if(confirm('Vider toute votre liste ?')){callCart={};cartNotes=Object.create(null);for(const id of Object.keys(cartExtras))delete cartExtras[id];saveCartExtras();saveCallCart();saveCartNotes();updateCart()}});
+$('cart-lines').addEventListener('click',event=>{
+ const button=event.target.closest('button');
+ if(!button)return;
+ const line=cartLineForElement(button);
+ if(!line)return;
+ if(button.classList.contains('cart-note-save')){
+  if(mergeCartLine(line)){
+   saveCallCart();
+   updateCart();
+   $('cart-close').focus({preventScroll:true});
+  }else{
+   const details=button.closest('details');
+   details.open=false;
+   details.querySelector('summary').focus();
+  }
+  return;
+ }
+ const delta=Number(button.dataset.delta);
+ if(!delta)return;
+ line.qty=Math.min(99,line.qty+delta);
+ if(!line.qty)callCart=callCart.filter(candidate=>candidate!==line);
+ saveCallCart();
+ updateCart();
+});
+$('cart-clear').addEventListener('click',()=>{
+ if(confirm('Vider toute votre liste ?')){
+  callCart=[];
+  saveCallCart();
+  updateCart();
+ }
+});
 function orderText(){
  const rows=cartEntries();
  const estimate=cartEstimate(rows);
- const lines=rows.map(({dish,qty})=>{
-  const note=cartNote(dish.id);
-  const extras=selectedExtras(dish).map(extra=>extra.name+' (+'+euro(extra.price/100)+')');
+ const lines=rows.map(({dish,qty,note,extras:names})=>{
+  const extras=selectedExtras(dish,names).map(extra=>extra.name+' (+'+euro(extra.price/100)+')');
   return `${qty} × ${dish.name} — ${dish.price}${extras.length?'\n   Suppléments par portion : '+extras.join(', '):''}${note?'\n   Note : '+note:''}`;
  });
  return [
@@ -617,6 +687,8 @@ function openDetail(id,trigger=null){
   document.getElementById('detail-description').textContent=d.description||'Pour connaître la composition et les options, contactez directement le restaurant.';
   showDishQuantity($('detail-list-qty'),d.id);
   $('detail-extras').innerHTML=extraChoices(d);
+  $('detail-note-input').value='';
+  $('detail-note').open=false;
   updateDetailPrice();
   const share=$('detail-share');
   share.href='#plat='+encodeURIComponent(d.id);
@@ -647,7 +719,7 @@ detailDialog.addEventListener('click',event=>{
  if(event.target===detailDialog&&(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom))closeDetail();
 });
 detailDialog.addEventListener('cancel',event=>{event.preventDefault();closeDetail()});
-document.getElementById('detail-add').addEventListener('click',()=>{if(!selectedDish)return;storeExtras(selectedDish.id,$('detail-extras'));addDishToCart(selectedDish.id);closeDetail();openCart()});
+document.getElementById('detail-add').addEventListener('click',()=>{if(!selectedDish)return;addDishToCart(selectedDish.id,$('detail-note-input').value,checkedExtras($('detail-extras')));closeDetail();openCart()});
 document.getElementById('detail-share').addEventListener('click',async e=>{e.preventDefault();if(!selectedDish)return;const url=new URL(location.href);url.hash='plat='+encodeURIComponent(selectedDish.id);try{await navigator.clipboard.writeText(url.href);e.target.textContent='✓ Lien copié'}catch{prompt('Copier le lien du plat',url.href)}});
 window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat=')){openDetail(safeDishId(location.hash.slice(6)))}});
 
