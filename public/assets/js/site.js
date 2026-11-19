@@ -719,7 +719,12 @@ detailDialog.addEventListener('click',event=>{
  if(event.target===detailDialog&&(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom))closeDetail();
 });
 detailDialog.addEventListener('cancel',event=>{event.preventDefault();closeDetail()});
-document.getElementById('detail-add').addEventListener('click',()=>{if(!selectedDish)return;addDishToCart(selectedDish.id,$('detail-note-input').value,checkedExtras($('detail-extras')));closeDetail();openCart()});
+$('detail-add').addEventListener('click',()=>{
+ if(!selectedDish)return;
+ addDishToCart(selectedDish.id,$('detail-note-input').value,checkedExtras($('detail-extras')));
+ closeDetail();
+ updateCart();
+});
 document.getElementById('detail-share').addEventListener('click',async e=>{e.preventDefault();if(!selectedDish)return;const url=new URL(location.href);url.hash='plat='+encodeURIComponent(selectedDish.id);try{await navigator.clipboard.writeText(url.href);e.target.textContent='✓ Lien copié'}catch{prompt('Copier le lien du plat',url.href)}});
 window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat=')){openDetail(safeDishId(location.hash.slice(6)))}});
 
