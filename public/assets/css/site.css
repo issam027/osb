@@ -163,6 +163,7 @@ body{background:#100e0c}
 .settings-day>strong{width:95px}
 .settings-check{display:inline-flex!important;align-items:center;gap:5px;white-space:nowrap}
 .settings-slot{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.settings-day:has(.hours-closed:checked) .settings-slot{display:none}
 .settings-slot span{font-size:12px}
 .settings-slot input{width:110px!important;margin:0!important}
 .settings-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
