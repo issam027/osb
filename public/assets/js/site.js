@@ -303,7 +303,7 @@ function openDetail(id,trigger=null){
   document.getElementById('detail-price').textContent=d.price;
   const share=$('detail-share');
   share.href='#plat='+encodeURIComponent(d.id);
-  share.textContent='Partager ce plat ↗';
+  share.textContent='Partager ↗';
   if(!detailDialog.open){
     detailDialog.hidden=false;
     detailDialog.showModal();
