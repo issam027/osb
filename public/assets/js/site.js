@@ -38,7 +38,7 @@ async function loadMenu(){
     if(Array.isArray(data.categories))applyCategories(data.categories);else applyCategories(Object.entries(DEFAULT_CATEGORIES).map(([id,name])=>({id,name,visible:true})));catalog=data.dishes.map(normalize);
     setStatus('');
   }catch(err){
-    setStatus('Impossible de charger menu.json. Vérifiez la présence du fichier sur votre hébergement.');
+    setStatus('La carte n’a pas pu être chargée. Actualisez la page pour réessayer.');
   }
   buildFilters();render();updateCart();
   if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(6)),false);
@@ -46,8 +46,11 @@ async function loadMenu(){
 function setStatus(message){const el=document.getElementById('admin-file-status');if(el)el.textContent=message}
 function markDirty(){dirty=true;setStatus('Modifications non publiées. Cliquez sur « Enregistrer ».')}
 async function apiSave(path,data){
- const response=await fetch(path,{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(data)});
- const result=await response.json().catch(()=>({}));if(!response.ok)throw Error(result.error||'Enregistrement impossible');return result;
+ const response=await fetch(path,{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(data)}).catch(()=>{
+  throw Error('Vérifiez votre connexion puis réessayez.');
+ });
+ if(response.status===401)throw Error('Votre session a expiré. Reconnectez-vous pour enregistrer.');
+ if(!response.ok)throw Error('Impossible d’enregistrer. Réessayez dans un instant.');
 }
 const SAVE_CONFIRMATION='La modification est enregistrée et sera visible prochainement.';
 async function saveMenu(){
@@ -57,7 +60,7 @@ async function saveMenu(){
 
 let activeCategory='all',editId=null;
 function persist(){markDirty()}
-function render(cat=activeCategory){activeCategory=cat;const menu=document.getElementById('menu-grid');menu.innerHTML=catalog.filter(d=>d.visible&&!hiddenCategories.has(d.category)&&(cat==='all'||d.category===cat)).map(d=>`<article class="dish" id="plat-${escapeHTML(d.id)}">${d.image?`<img class="dish-photo" src="${escapeHTML(d.image)}" loading="lazy" decoding="async" alt="${escapeHTML(d.name)}">`:''}<div class="eyebrow">${escapeHTML(CATEGORIES[d.category]||d.category)}</div><div class="top"><h3>${escapeHTML(d.name)}</h3></div><p>${escapeHTML(d.description)}</p><div class="top"><span class="price">${escapeHTML(d.price)}</span></div><button type="button" class="dish-more" data-detail-id="${escapeHTML(d.id)}" aria-label="Voir la fiche de ${escapeHTML(d.name)}">Découvrir le plat ↗</button><button type="button" class="add-dish" data-add-id="${escapeHTML(d.id)}" aria-label="Ajouter ${escapeHTML(d.name)} à ma commande">+ Ajouter à ma commande</button></article>`).join('')||'<p>Aucun plat disponible dans cette catégorie.</p>'}
+function render(cat=activeCategory){activeCategory=cat;const menu=document.getElementById('menu-grid');menu.innerHTML=catalog.filter(d=>d.visible&&!hiddenCategories.has(d.category)&&(cat==='all'||d.category===cat)).map(d=>`<article class="dish" id="plat-${escapeHTML(d.id)}">${d.image?`<img class="dish-photo" src="${escapeHTML(d.image)}" loading="lazy" decoding="async" alt="${escapeHTML(d.name)}">`:''}<div class="eyebrow">${escapeHTML(CATEGORIES[d.category]||d.category)}</div><div class="top"><h3>${escapeHTML(d.name)}</h3></div><p>${escapeHTML(d.description)}</p><div class="top"><span class="price">${escapeHTML(d.price)}</span></div><button type="button" class="dish-more" data-detail-id="${escapeHTML(d.id)}" aria-label="Voir la fiche de ${escapeHTML(d.name)}">Découvrir le plat ↗</button><button type="button" class="add-dish" data-add-id="${escapeHTML(d.id)}" aria-label="Ajouter ${escapeHTML(d.name)} à ma commande">+ Ajouter à ma liste</button></article>`).join('')||'<p>Aucun plat disponible dans cette catégorie.</p>'}
 document.querySelector('.filters').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;activeCategory=b.dataset.filter;buildFilters();render();});
 buildFilters();
 const $=id=>document.getElementById(id);const shell=$('admin-shell');let adminAuthenticated=false;
@@ -66,8 +69,8 @@ function closeAdmin(){shell.hidden=true;$('admin-modal').hidden=true;syncPageScr
 $('admin-open').addEventListener('click',openAdmin);$('admin-cancel').addEventListener('click',closeAdmin);
 $('admin-login-form').addEventListener('submit',async e=>{
  e.preventDefault();const button=$('admin-login-form').querySelector('[type=submit]');button.disabled=true;
- try{const response=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({username:$('admin-user').value.trim(),password:$('admin-pass').value})});const result=await response.json();if(!response.ok)throw Error(result.error||'Connexion impossible');adminAuthenticated=true;$('admin-login').hidden=true;$('admin-panel').hidden=false;$('admin-pass').value='';$('admin-error').textContent='';drawAdmin();}
- catch(err){$('admin-error').textContent=err.message}finally{button.disabled=false}
+ try{const response=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({username:$('admin-user').value.trim(),password:$('admin-pass').value})});if(response.status===401)throw Error('Vérifiez votre identifiant et votre mot de passe.');if(!response.ok)throw Error('L’Espace pro est indisponible pour le moment. Réessayez plus tard.');adminAuthenticated=true;$('admin-login').hidden=true;$('admin-panel').hidden=false;$('admin-pass').value='';$('admin-error').textContent='';drawAdmin();}
+ catch(err){$('admin-error').textContent=err instanceof TypeError?'Vérifiez votre connexion puis réessayez.':err.message}finally{button.disabled=false}
 });
 $('admin-logout').addEventListener('click',async()=>{
  const button=$('admin-logout');
@@ -87,12 +90,12 @@ $('admin-logout').addEventListener('click',async()=>{
 });
 fetch('/api/auth/session',{credentials:'same-origin'}).then(r=>r.json()).then(v=>{adminAuthenticated=v.authenticated===true}).catch(()=>{});
 
-function drawAdmin(){if(!adminAuthenticated)return;const cats=categoryData();$('stat-total').textContent=catalog.length;$('stat-visible').textContent=catalog.filter(d=>d.visible).length;$('stat-categories').textContent=cats.length;const selected=$('admin-category').value;$('admin-category').innerHTML='<option value="all">Toutes les catégories</option>'+Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('admin-category').value=selected&&[...$('admin-category').options].some(x=>x.value===selected)?selected:'all';const q=$('admin-search').value.trim().toLocaleLowerCase('fr');const c=$('admin-category').value;const rows=catalog.filter(d=>(c==='all'||d.category===c)&&[d.name,d.description,d.category].join(' ').toLocaleLowerCase('fr').includes(q));$('admin-rows').innerHTML=rows.map(d=>`<tr><td><strong>${escapeHTML(d.name)}</strong><small>${escapeHTML(d.description.slice(0,90))}</small></td><td>${escapeHTML(CATEGORIES[d.category])}</td><td><strong>${escapeHTML(d.price)}</strong></td><td class="${d.visible?'':'off'}">${d.visible?'Visible':'Masqué'}</td><td><div class="row-actions"><button class="a-btn secondary" data-action="edit" data-id="${escapeHTML(d.id)}">Modifier</button><button class="a-btn secondary" data-action="toggle" data-id="${escapeHTML(d.id)}">${d.visible?'Masquer':'Afficher'}</button><button class="a-btn danger" data-action="delete" data-id="${escapeHTML(d.id)}">Supprimer</button></div></td></tr>`).join('')||'<tr><td colspan="5">Aucun plat trouvé.</td></tr>';$('admin-count').textContent=`${rows.length} plat(s) affiché(s) dans le tableau`}
+function drawAdmin(){if(!adminAuthenticated)return;const cats=categoryData();$('stat-total').textContent=catalog.length;$('stat-visible').textContent=catalog.filter(d=>d.visible).length;$('stat-categories').textContent=cats.length;const selected=$('admin-category').value;$('admin-category').innerHTML='<option value="all">Toutes les catégories</option>'+Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('admin-category').value=selected&&[...$('admin-category').options].some(x=>x.value===selected)?selected:'all';const q=$('admin-search').value.trim().toLocaleLowerCase('fr');const c=$('admin-category').value;const rows=catalog.filter(d=>(c==='all'||d.category===c)&&[d.name,d.description,d.category].join(' ').toLocaleLowerCase('fr').includes(q));$('admin-rows').innerHTML=rows.map(d=>`<tr><td><strong>${escapeHTML(d.name)}</strong><small>${escapeHTML(d.description.slice(0,90))}</small></td><td>${escapeHTML(CATEGORIES[d.category])}</td><td><strong>${escapeHTML(d.price)}</strong></td><td class="${d.visible?'':'off'}">${d.visible?'Visible':'Masqué'}</td><td><div class="row-actions"><button class="a-btn secondary" data-action="edit" data-id="${escapeHTML(d.id)}">Modifier</button><button class="a-btn secondary" data-action="toggle" data-id="${escapeHTML(d.id)}">${d.visible?'Masquer':'Afficher'}</button><button class="a-btn danger" data-action="delete" data-id="${escapeHTML(d.id)}">Supprimer</button></div></td></tr>`).join('')||'<tr><td colspan="5">Aucun plat trouvé.</td></tr>';$('admin-count').textContent=`${rows.length} plat(s) affiché(s)`}
 $('admin-search').addEventListener('input',drawAdmin);$('admin-category').addEventListener('change',drawAdmin);
 $('admin-rows').addEventListener('click',e=>{if(!adminAuthenticated)return;const btn=e.target.closest('button[data-action]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.id);if(!d)return;if(btn.dataset.action==='edit')openEditor(d);if(btn.dataset.action==='toggle'){d.visible=!d.visible;persist();render();drawAdmin()}if(btn.dataset.action==='delete'&&confirm(`Supprimer définitivement « ${d.name} » de la carte ?`)){catalog=catalog.filter(x=>x.id!==d.id);persist();render();drawAdmin()}});
 function openEditor(d){editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.image||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
 $('admin-add').addEventListener('click',()=>openEditor(null));$('editor-cancel').addEventListener('click',()=>{$('admin-modal').hidden=true;$('admin-add').focus()});
-$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const image=$('dish-image').value.trim();if(image&&!isSafeImage(image)){alert('L’image doit utiliser une URL HTTPS valide.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:$('dish-price').value.trim(),description:$('dish-description').value.trim(),image,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
+$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const image=$('dish-image').value.trim();if(image&&!isSafeImage(image)){alert('Ce lien ne permet pas d’afficher la photo. Vérifiez-le ou laissez le champ vide.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:$('dish-price').value.trim(),description:$('dish-description').value.trim(),image,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
 $('admin-export').addEventListener('click',async ()=>{
  const tab=$('admin-panel').dataset.currentTab;
  if(tab==='horaires'||tab==='annonces')$('settings-export').click();
@@ -111,7 +114,7 @@ function drawCategories(){
  const cats=categoryData(),host=$('category-rows');
  host.innerHTML=cats.map((c,i)=>{
   const n=catalog.filter(d=>d.category===c.id).length;
-  return '<div class="category-row" data-id="'+escapeHTML(c.id)+'"><div><strong>'+escapeHTML(c.name)+'</strong><small>'+n+' plat(s) · '+escapeHTML(c.id)+'</small></div><div class="category-actions">'+
+  return '<div class="category-row" data-id="'+escapeHTML(c.id)+'"><div><strong>'+escapeHTML(c.name)+'</strong><small>'+n+' '+(n===1?'plat':'plats')+' · '+(c.visible?'Visible':'Masquée')+'</small></div><div class="category-actions">'+
   '<button class="a-btn secondary" type="button" data-cat-action="up" '+(i===0?'disabled':'')+' aria-label="Monter '+escapeHTML(c.name)+'">↑</button>'+
   '<button class="a-btn secondary" type="button" data-cat-action="down" '+(i===cats.length-1?'disabled':'')+' aria-label="Descendre '+escapeHTML(c.name)+'">↓</button>'+
   '<button class="a-btn secondary" type="button" data-cat-action="rename">Renommer</button>'+
@@ -173,13 +176,13 @@ drawAdmin=function(){oldDrawAdmin();drawCategories()};
 const CART_KEY='osaveurs-call-list-v1';
 let callCart={};try{const saved=JSON.parse(localStorage.getItem(CART_KEY));if(saved&&typeof saved==='object'&&!Array.isArray(saved))callCart=saved}catch(e){}
 function saveCallCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(callCart))}catch(e){}}
-function cartEntries(){return Object.entries(callCart).map(([id,qty])=>({dish:catalog.find(d=>d.id===id&&d.visible),qty:Math.max(0,Math.min(99,Number(qty)||0))})).filter(x=>x.dish&&x.qty>0)}
+function cartEntries(){return Object.entries(callCart).map(([id,qty])=>({dish:catalog.find(d=>d.id===id&&d.visible&&!hiddenCategories.has(d.category)),qty:Math.max(0,Math.min(99,Number(qty)||0))})).filter(x=>x.dish&&x.qty>0)}
 function amount(price){const m=String(price).replace(/\s/g,'').match(/^(\d+(?:[,.]\d{1,2})?)€/);return m?Number(m[1].replace(',','.')):null}
 function euro(n){return n.toLocaleString('fr-FR',{style:'currency',currency:'EUR'})}
 function updateCart(){const rows=cartEntries();const count=rows.reduce((a,r)=>a+r.qty,0);document.getElementById('cart-count').textContent=count;document.getElementById('cart-lines').innerHTML=rows.map(({dish:d,qty})=>`<div class="cart-line"><div><strong>${escapeHTML(d.name)}</strong><small>${escapeHTML(d.price)} · ${escapeHTML(CATEGORIES[d.category])}</small></div><div class="cart-qty"><button type="button" data-cart-id="${escapeHTML(d.id)}" data-delta="-1" aria-label="Retirer un ${escapeHTML(d.name)}">−</button><span>${qty}</span><button type="button" data-cart-id="${escapeHTML(d.id)}" data-delta="1" aria-label="Ajouter un ${escapeHTML(d.name)}">+</button></div></div>`).join('')||'<p class="cart-explain">Votre liste est vide. Choisissez des plats dans la carte.</p>';let sum=0,unknown=false;rows.forEach(({dish,qty})=>{const p=amount(dish.price);if(p===null)unknown=true;else sum+=p*qty});document.getElementById('cart-total').textContent=unknown?euro(sum)+' + prix à confirmer':euro(sum);document.getElementById('cart-copy').disabled=!rows.length;document.getElementById('cart-clear').disabled=!rows.length}
 function openCart(){document.getElementById('cart-overlay').hidden=false;syncPageScroll();updateCart();document.getElementById('cart-close').focus()}
 function closeCart(){document.getElementById('cart-overlay').hidden=true;syncPageScroll();document.getElementById('cart-launch').focus()}
-document.getElementById('menu-grid').addEventListener('click',e=>{const btn=e.target.closest('[data-add-id]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.addId&&x.visible);if(!d)return;callCart[d.id]=Math.min(99,(Number(callCart[d.id])||0)+1);saveCallCart();updateCart();btn.textContent='✓ Ajouté à la liste';setTimeout(()=>{if(btn.isConnected)btn.textContent='+ Ajouter à ma commande'},900)});
+document.getElementById('menu-grid').addEventListener('click',e=>{const btn=e.target.closest('[data-add-id]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.addId&&x.visible);if(!d)return;callCart[d.id]=Math.min(99,(Number(callCart[d.id])||0)+1);saveCallCart();updateCart();btn.textContent='✓ Ajouté à la liste';setTimeout(()=>{if(btn.isConnected)btn.textContent='+ Ajouter à ma liste'},900)});
 document.getElementById('cart-launch').addEventListener('click',openCart);
 document.getElementById('cart-close').addEventListener('click',closeCart);
 document.getElementById('cart-overlay').addEventListener('click',e=>{if(e.target.id==='cart-overlay')closeCart()});
@@ -375,11 +378,11 @@ if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(
    }});
  }
  el('settings-form').addEventListener('submit',e=>{
-   e.preventDefault();try{settings=readForm();renderPublic();el('settings-status').textContent='Modifications affichées localement. Cliquez sur « Enregistrer » pour les publier.'}
+   e.preventDefault();try{settings=readForm();renderPublic();el('settings-status').textContent='Les changements sont prêts. Appuyez sur « Enregistrer » pour les publier.'}
    catch(err){el('settings-status').textContent='Erreur : '+err.message}
  });
  el('settings-export').addEventListener('click',async()=>{
-   try{settings=readForm();const response=await apiSave('/api/site',settings);renderPublic();el('settings-status').textContent=SAVE_CONFIRMATION;}
+   try{settings=readForm();await apiSave('/api/site',settings);renderPublic();el('settings-status').textContent=SAVE_CONFIRMATION;}
    catch(err){el('settings-status').textContent='Erreur : '+err.message}
    el('admin-action-status').textContent=el('settings-status').textContent;
  });
