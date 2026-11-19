@@ -82,6 +82,7 @@ function expireSaveConfirmation(){
 }
 function closeAdmin(){clearAdminStatuses();shell.hidden=true;$('admin-modal').hidden=true;syncPageScroll();$('admin-open').focus()}
 $('admin-open').addEventListener('click',openAdmin);$('admin-cancel').addEventListener('click',closeAdmin);
+$('admin-close').addEventListener('click',closeAdmin);
 $('admin-login-form').addEventListener('submit',async e=>{
  e.preventDefault();const button=$('admin-login-form').querySelector('[type=submit]');button.disabled=true;
  try{const response=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({username:$('admin-user').value.trim(),password:$('admin-pass').value})});if(response.status===401)throw Error('Vérifiez votre identifiant et votre mot de passe.');if(!response.ok)throw Error('L’Espace pro est indisponible pour le moment. Réessayez plus tard.');adminAuthenticated=true;clearAdminStatuses();$('admin-login').hidden=true;$('admin-panel').hidden=false;$('admin-pass').value='';$('admin-error').textContent='';drawAdmin();}
