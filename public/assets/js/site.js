@@ -136,10 +136,17 @@ fetch('/api/auth/session',{credentials:'same-origin'}).then(r=>r.json()).then(v=
 
 function drawAdmin(){if(!adminAuthenticated)return;const cats=categoryData();$('stat-total').textContent=catalog.length;$('stat-visible').textContent=catalog.filter(d=>d.visible).length;$('stat-categories').textContent=cats.length;const selected=$('admin-category').value;$('admin-category').innerHTML='<option value="all">Toutes les catégories</option>'+Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('admin-category').value=selected&&[...$('admin-category').options].some(x=>x.value===selected)?selected:'all';const q=$('admin-search').value.trim().toLocaleLowerCase('fr');const c=$('admin-category').value;const rows=catalog.filter(d=>(c==='all'||d.category===c)&&[d.name,d.description,d.category].join(' ').toLocaleLowerCase('fr').includes(q));$('admin-rows').innerHTML=rows.map(d=>`<tr><td><strong>${escapeHTML(d.name)}</strong><small>${escapeHTML(d.description.slice(0,90))}</small></td><td>${escapeHTML(CATEGORIES[d.category])}</td><td><strong>${escapeHTML(d.price)}</strong></td><td class="${d.visible?'':'off'}">${d.visible?'Visible':'Masqué'}</td><td><div class="row-actions"><button class="a-btn secondary" data-action="edit" data-id="${escapeHTML(d.id)}">Modifier</button><button class="a-btn secondary" data-action="toggle" data-id="${escapeHTML(d.id)}">${d.visible?'Masquer':'Afficher'}</button><button class="a-btn danger" data-action="delete" data-id="${escapeHTML(d.id)}">Supprimer</button></div></td></tr>`).join('')||'<tr><td colspan="5">Aucun plat trouvé.</td></tr>';$('admin-count').textContent=`${rows.length} plat(s) affiché(s)`}
 $('admin-search').addEventListener('input',drawAdmin);$('admin-category').addEventListener('change',drawAdmin);
-$('admin-rows').addEventListener('click',e=>{if(!adminAuthenticated)return;const btn=e.target.closest('button[data-action]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.id);if(!d)return;if(btn.dataset.action==='edit')openEditor(d);if(btn.dataset.action==='toggle'){d.visible=!d.visible;persist();render();drawAdmin()}if(btn.dataset.action==='delete'&&confirm(`Supprimer définitivement « ${d.name} » de la carte ?`)){catalog=catalog.filter(x=>x.id!==d.id);persist();render();drawAdmin()}});
-function openEditor(d){editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price.replace(/\s*€$/,'')||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.images.join('\n')||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
-$('admin-add').addEventListener('click',()=>openEditor(null));$('editor-cancel').addEventListener('click',()=>{$('admin-modal').hidden=true;$('admin-add').focus()});
-$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const images=[...new Set($('dish-image').value.split(/\r?\n/).map(link=>link.trim()).filter(Boolean))];if(images.length>8||!images.every(isSafeImage)){alert('Ajoutez jusqu’à 8 liens de photos valides, un par ligne.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:formatDishPrice($('dish-price').value),description:$('dish-description').value.trim(),image:images[0]||'',images,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
+$('admin-rows').addEventListener('click',e=>{if(!adminAuthenticated)return;const btn=e.target.closest('button[data-action]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.id);if(!d)return;if(btn.dataset.action==='edit')openEditor(d,btn);if(btn.dataset.action==='toggle'){d.visible=!d.visible;persist();render();drawAdmin()}if(btn.dataset.action==='delete'&&confirm(`Supprimer définitivement « ${d.name} » de la carte ?`)){catalog=catalog.filter(x=>x.id!==d.id);persist();render();drawAdmin()}});
+let editorTrigger;
+function openEditor(d,trigger=$('admin-add')){editorTrigger=trigger;editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price.replace(/\s*€$/,'')||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.images.join('\n')||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
+function closeEditor(){
+ $('admin-modal').hidden=true;
+ (editorTrigger?.isConnected?editorTrigger:$('admin-add')).focus({preventScroll:true});
+}
+$('admin-add').addEventListener('click',()=>openEditor(null));
+$('editor-cancel').addEventListener('click',closeEditor);
+$('editor-close').addEventListener('click',closeEditor);
+$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const images=[...new Set($('dish-image').value.split(/\r?\n/).map(link=>link.trim()).filter(Boolean))];if(images.length>8||!images.every(isSafeImage)){alert('Ajoutez jusqu’à 8 liens de photos valides, un par ligne.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:formatDishPrice($('dish-price').value),description:$('dish-description').value.trim(),image:images[0]||'',images,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();closeEditor()});
 $('admin-export').addEventListener('click',async ()=>{
  const tab=$('admin-panel').dataset.currentTab;
  if(['horaires','annonces','livraison'].includes(tab))$('settings-export').click();
@@ -150,7 +157,7 @@ $('admin-export').addEventListener('click',async ()=>{
   if(saved)expireSaveConfirmation();
  }
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!shell.hidden){if(!$('admin-modal').hidden){$('admin-modal').hidden=true}else closeAdmin()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!shell.hidden){if(!$('admin-modal').hidden)closeEditor();else closeAdmin()}});
 
 
 /* V16 : gestion des catégories, enregistrée dans menu.json */
@@ -162,9 +169,12 @@ function drawCategories(){
   return '<div class="category-row" data-id="'+escapeHTML(c.id)+'"><div><strong>'+escapeHTML(c.name)+'</strong><small>'+n+' '+(n===1?'plat':'plats')+' · '+(c.visible?'Visible':'Masquée')+'</small></div><div class="category-actions">'+
   '<button class="a-btn secondary" type="button" data-cat-action="up" '+(i===0?'disabled':'')+' aria-label="Monter '+escapeHTML(c.name)+'">↑</button>'+
   '<button class="a-btn secondary" type="button" data-cat-action="down" '+(i===cats.length-1?'disabled':'')+' aria-label="Descendre '+escapeHTML(c.name)+'">↓</button>'+
-  '<button class="a-btn secondary" type="button" data-cat-action="rename">Renommer</button>'+
+  '<button class="a-btn secondary" type="button" data-cat-action="rename" aria-expanded="false">Renommer</button>'+
   '<button class="a-btn secondary" type="button" data-cat-action="toggle">'+(c.visible?'Masquer':'Afficher')+'</button>'+
-  '<button class="a-btn danger" type="button" data-cat-action="delete">Supprimer</button></div></div>';
+  '<button class="a-btn danger" type="button" data-cat-action="delete">Supprimer</button></div>'+
+  '<form class="category-rename" hidden><label>Nouveau nom<input name="category-name" maxlength="65" required></label>'+
+  '<div class="admin-actions"><button class="a-btn" type="submit">Valider le nom</button>'+
+  '<button class="a-btn secondary" type="button" data-cat-action="cancel-rename">Annuler</button></div></form></div>';
  }).join('');
 }
 function categoryChanged(message){
@@ -191,14 +201,21 @@ $('category-rows').addEventListener('click',e=>{
  const b=e.target.closest('button[data-cat-action]'),row=b?.closest('[data-id]');if(!row)return;
  const id=row.dataset.id,action=b.dataset.catAction,cats=categoryData(),index=cats.findIndex(c=>c.id===id);
  if(index<0)return;
- if(action==='rename'){
-  const name=prompt('Nouveau nom de la catégorie :',CATEGORIES[id]);
-  if(name===null)return;
-  const cleaned=name.trim();
-  if(!cleaned||cleaned.length>65){$('category-status').textContent='Nom invalide (1 à 65 caractères).';return}
-  if(Object.entries(CATEGORIES).some(([k,v])=>k!==id&&v.toLocaleLowerCase('fr')===cleaned.toLocaleLowerCase('fr'))){$('category-status').textContent='Nom déjà utilisé.';return}
-  CATEGORIES[id]=cleaned;
- }else if(action==='toggle'){
+ if(action==='rename'||action==='cancel-rename'){
+  const form=row.querySelector('.category-rename');
+  const rename=row.querySelector('[data-cat-action="rename"]');
+  const opening=action==='rename'&&form.hidden;
+  form.hidden=!opening;
+  rename.setAttribute('aria-expanded',String(opening));
+  if(opening){
+   const input=form.elements['category-name'];
+   input.value=CATEGORIES[id];
+   input.focus();
+   input.select();
+  }else rename.focus();
+  return;
+ }
+ if(action==='toggle'){
   if(hiddenCategories.has(id))hiddenCategories.delete(id);else hiddenCategories.add(id);
  }else if(action==='delete'){
   const count=catalog.filter(d=>d.category===id).length;
@@ -213,6 +230,22 @@ $('category-rows').addEventListener('click',e=>{
  }else return;
  if(!CATEGORIES[activeCategory]||hiddenCategories.has(activeCategory))activeCategory='all';
  categoryChanged('Catégories mises à jour.');
+});
+$('category-rows').addEventListener('submit',event=>{
+ const form=event.target.closest('.category-rename');
+ if(!form||!adminAuthenticated)return;
+ event.preventDefault();
+ const id=form.closest('.category-row').dataset.id;
+ const input=form.elements['category-name'];
+ const name=input.value.trim();
+ if(!name||Object.entries(CATEGORIES).some(([key,value])=>key!==id&&value.toLocaleLowerCase('fr')===name.toLocaleLowerCase('fr'))){
+  $('category-status').textContent=name?'Ce nom est déjà utilisé.':'Saisissez un nom pour la catégorie.';
+  input.focus();
+  return;
+ }
+ CATEGORIES[id]=name;
+ categoryChanged('Catégorie renommée.');
+ $('category-rows').querySelector(`.category-row[data-id="${CSS.escape(id)}"] [data-cat-action="rename"]`).focus({preventScroll:true});
 });
 const oldDrawAdmin=drawAdmin;
 drawAdmin=function(){oldDrawAdmin();drawCategories()};

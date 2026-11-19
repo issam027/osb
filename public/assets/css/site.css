@@ -263,7 +263,7 @@ body{overflow-x:hidden}
 .back-to-top:focus-visible{outline:3px solid #ffc18b;outline-offset:3px}
 @media(max-width:700px){.back-to-top{bottom:78px}}
 
-.admin-top .admin-close{flex:none;display:grid;place-items:center;width:44px;height:44px;padding:0;border-radius:50%;font-size:24px;line-height:1}
+.admin-shell .admin-close{flex:none;display:grid;place-items:center;width:44px;height:44px;padding:0;border-radius:50%;font-size:24px;line-height:1}
 
 .detail-gallery{touch-action:pan-y}
 .detail-photo-controls:not([hidden]){display:flex;align-items:center;justify-content:center;gap:16px;margin-top:6px}
@@ -274,3 +274,9 @@ body{overflow-x:hidden}
 .cart-empty h3{font:600 clamp(24px,5vw,32px)/1.15 Georgia,serif;margin:4px 0 0}
 .cart-empty p{color:#e6c7ae;margin:0;max-width:28ch}
 .cart-empty a{display:grid;place-items:center;min-height:44px;padding:10px 24px;border-radius:7px;text-decoration:none;font-weight:800;margin-top:6px}
+
+.editor-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.admin-editor .editor-header h3{margin:0}
+.category-rename{flex-basis:100%;min-width:0}
+.category-rename label{margin-top:0}
+.category-rename .admin-actions{margin-top:8px}
