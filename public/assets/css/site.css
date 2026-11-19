@@ -285,3 +285,13 @@ body{overflow-x:hidden}
 .dish-list-qty:not([hidden]){display:inline-block;border-radius:999px;padding:4px 9px;background:#e9dac6;color:#512e1e;font-size:12px;font-weight:750}
 
 .detail-price-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px}
+
+.dish-extras-editor,.extra-choices{border:1px solid #8b7363;border-radius:8px;margin:14px 0 0;padding:8px 12px;min-inline-size:0}
+.dish-extra-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(64px,.5fr) auto;gap:6px;align-items:end;margin-bottom:8px}
+.dish-extra-row label{min-width:0;margin:0}
+.dish-extra-row input{margin-top:4px;padding-inline:8px}
+.dish-extra-row button{padding-inline:10px}
+.extra-choices label{display:flex;align-items:center;gap:8px;min-height:36px;cursor:pointer}
+.extra-choices input{accent-color:#9e3d1c;flex:none}
+.extra-choices small{display:block;margin-top:4px}
+.cart-line .extra-choices{padding:5px 8px;font-size:13px}

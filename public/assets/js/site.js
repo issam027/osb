@@ -49,11 +49,20 @@ function formatDishPrice(value){
  const match=price.match(/^(\d{1,24})(?:[,.](\d{1,2}))?\s*€?$/);
  return match?`${match[1]},${(match[2]||'').padEnd(2,'0')} €`:price;
 }
-function normalize(d,i){
+function isEggSupplement(d){
+ return /^supplément (?:œuf|oeuf)$/i.test(d.name?.trim());
+}
+function normalizeCatalog(entries){
+ const legacyEgg=entries.find(isEggSupplement);
+ const eggPrice=legacyEgg?Math.round((amount(formatDishPrice(legacyEgg.price))??1)*100):100;
+ return entries.map((dish,index)=>isEggSupplement(dish)?null:normalize(dish,index,eggPrice)).filter(Boolean);
+}
+function normalize(d,i,eggPrice){
  const links=Array.isArray(d.images)?d.images:isSafeImage(d.image)?[d.image]:defaultDishPhotos.get(d.name)||[];
  const images=[...new Set(links.filter(isSafeImage))].slice(0,8);
- return {id:String(d.id||('dish-'+i)),category:CATEGORIES[d.category]?d.category:(Object.keys(CATEGORIES)[0]||'plats'),name:String(d.name||'').slice(0,100),price:formatDishPrice(d.price||'À confirmer').slice(0,30),description:String(d.description||'').slice(0,500),image:images[0]||'',images,visible:d.visible!==false};}
-let catalog=dishes.map(normalize);
+ const extras=Array.isArray(d.extras)?d.extras:(d.category==='burgers'&&/^Hamburger /i.test(d.name)?[{name:'Œuf',price:eggPrice}]:[]);
+ return {id:String(d.id||('dish-'+i)),category:CATEGORIES[d.category]?d.category:(Object.keys(CATEGORIES)[0]||'plats'),name:String(d.name||'').slice(0,100),price:formatDishPrice(d.price||'À confirmer').slice(0,30),description:String(d.description||'').slice(0,500),image:images[0]||'',images,extras,visible:d.visible!==false};}
+let catalog=normalizeCatalog(dishes);
 let fileHandle=null;
 let dirty=false;
 const MENU_PATH='/api/menu';
@@ -63,7 +72,7 @@ async function loadMenu(){
     if(!response.ok)throw new Error('HTTP '+response.status);
     const data=await response.json();
     if(!Array.isArray(data.dishes)||!data.dishes.every(x=>x&&typeof x.name==='string'))throw new Error('Carte invalide');
-    if(Array.isArray(data.categories))applyCategories(data.categories);else applyCategories(Object.entries(DEFAULT_CATEGORIES).map(([id,name])=>({id,name,visible:true})));catalog=data.dishes.map(normalize);
+    if(Array.isArray(data.categories))applyCategories(data.categories);else applyCategories(Object.entries(DEFAULT_CATEGORIES).map(([id,name])=>({id,name,visible:true})));catalog=normalizeCatalog(data.dishes);
     setStatus('');
   }catch(err){
     setStatus('La carte n’a pas pu être chargée. Actualisez la page pour réessayer.');
@@ -138,7 +147,7 @@ function drawAdmin(){if(!adminAuthenticated)return;const cats=categoryData();$('
 $('admin-search').addEventListener('input',drawAdmin);$('admin-category').addEventListener('change',drawAdmin);
 $('admin-rows').addEventListener('click',e=>{if(!adminAuthenticated)return;const btn=e.target.closest('button[data-action]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.id);if(!d)return;if(btn.dataset.action==='edit')openEditor(d,btn);if(btn.dataset.action==='toggle'){d.visible=!d.visible;persist();render();drawAdmin()}if(btn.dataset.action==='delete'&&confirm(`Supprimer définitivement « ${d.name} » de la carte ?`)){catalog=catalog.filter(x=>x.id!==d.id);persist();render();drawAdmin()}});
 let editorTrigger;
-function openEditor(d,trigger=$('admin-add')){editorTrigger=trigger;editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price.replace(/\s*€$/,'')||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.images.join('\n')||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
+function openEditor(d,trigger=$('admin-add')){editorTrigger=trigger;editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price.replace(/\s*€$/,'')||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.images.join('\n')||'';$('dish-visible').checked=d?.visible!==false;$('dish-extra-rows').replaceChildren();$('dish-extra-error').textContent='';(d?.extras||[]).forEach(addExtraEditorRow);$('admin-modal').hidden=false;$('dish-name').focus()}
 function closeEditor(){
  $('admin-modal').hidden=true;
  (editorTrigger?.isConnected?editorTrigger:$('admin-add')).focus({preventScroll:true});
@@ -146,7 +155,40 @@ function closeEditor(){
 $('admin-add').addEventListener('click',()=>openEditor(null));
 $('editor-cancel').addEventListener('click',closeEditor);
 $('editor-close').addEventListener('click',closeEditor);
-$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const images=[...new Set($('dish-image').value.split(/\r?\n/).map(link=>link.trim()).filter(Boolean))];if(images.length>8||!images.every(isSafeImage)){alert('Ajoutez jusqu’à 8 liens de photos valides, un par ligne.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:formatDishPrice($('dish-price').value),description:$('dish-description').value.trim(),image:images[0]||'',images,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();closeEditor()});
+function addExtraEditorRow(extra){
+ const row=document.createElement('div');
+ row.className='dish-extra-row';
+ row.innerHTML='<label>Nom<input class="extra-name" maxlength="60" required></label><label>Prix (€)<input class="extra-price" inputmode="decimal" maxlength="7" required></label><button type="button" class="a-btn secondary" aria-label="Retirer le supplément">×</button>';
+ row.querySelector('.extra-name').value=extra?.name||'';
+ row.querySelector('.extra-price').value=extra?String(extra.price/100).replace('.',','):'';
+ row.querySelector('button').addEventListener('click',()=>row.remove());
+ $('dish-extra-rows').append(row);
+ return row;
+}
+$('dish-extra-add').addEventListener('click',()=>{
+ if($('dish-extra-rows').children.length>=12){
+  $('dish-extra-error').textContent='Vous pouvez ajouter jusqu’à 12 suppléments.';
+  return;
+ }
+ $('dish-extra-error').textContent='';
+ addExtraEditorRow().querySelector('input').focus();
+});
+function readDishExtras(){
+ const extras=[...$('dish-extra-rows').children].map(row=>{
+  const name=row.querySelector('.extra-name').value.trim();
+  const value=row.querySelector('.extra-price').value.trim();
+  const price=/^\d{1,4}(?:[,.]\d{1,2})?$/.test(value)?Math.round(Number(value.replace(',','.'))*100):NaN;
+  return {name,price};
+ });
+ if(extras.some(extra=>!extra.name||!Number.isSafeInteger(extra.price))){
+  throw Error('Indiquez un nom et un prix valide pour chaque supplément.');
+ }
+ if(new Set(extras.map(extra=>extra.name.toLocaleLowerCase('fr'))).size!==extras.length){
+  throw Error('Chaque supplément doit avoir un nom différent.');
+ }
+ return extras;
+}
+$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;let extras;try{extras=readDishExtras()}catch(error){$('dish-extra-error').textContent=error.message;return}const images=[...new Set($('dish-image').value.split(/\r?\n/).map(link=>link.trim()).filter(Boolean))];if(images.length>8||!images.every(isSafeImage)){alert('Ajoutez jusqu’à 8 liens de photos valides, un par ligne.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:formatDishPrice($('dish-price').value),description:$('dish-description').value.trim(),image:images[0]||'',images,extras,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();closeEditor()});
 $('admin-export').addEventListener('click',async ()=>{
  const tab=$('admin-panel').dataset.currentTab;
  if(['horaires','annonces','livraison'].includes(tab))$('settings-export').click();
@@ -258,6 +300,27 @@ let cartNotes=Object.create(null);
 try{Object.assign(cartNotes,JSON.parse(localStorage.getItem(CART_NOTES_KEY)))}catch(e){}
 function saveCartNotes(){try{localStorage.setItem(CART_NOTES_KEY,JSON.stringify(cartNotes))}catch(e){}}
 function cartNote(id){return typeof cartNotes[id]==='string'?cartNotes[id].slice(0,200):''}
+const cartExtras=Object.create(null);
+try{Object.assign(cartExtras,JSON.parse(localStorage.getItem('osaveurs-call-extras-v1')))}catch(e){}
+function saveCartExtras(){try{localStorage.setItem('osaveurs-call-extras-v1',JSON.stringify(cartExtras))}catch(e){}}
+function selectedExtras(dish){
+ const names=Array.isArray(cartExtras[dish.id])?cartExtras[dish.id]:[];
+ return dish.extras.filter(extra=>names.includes(extra.name));
+}
+function extraChoices(dish,forCart=false){
+ if(!dish.extras.length)return '';
+ const names=new Set(selectedExtras(dish).map(extra=>extra.name));
+ return `<fieldset class="extra-choices"><legend>Suppléments par portion</legend>${dish.extras.map(extra=>
+  `<label><input type="checkbox" value="${escapeHTML(extra.name)}" ${names.has(extra.name)?'checked':''}> <span>${escapeHTML(extra.name)} · +${euro(extra.price/100)}</span></label>`
+ ).join('')}${forCart?'':'<small>Le choix s’applique à toutes les portions de ce plat dans votre liste.</small>'}</fieldset>`;
+}
+function checkedExtras(host){
+ return [...host.querySelectorAll('input:checked')].map(input=>input.value);
+}
+function storeExtras(id,host){
+ cartExtras[id]=checkedExtras(host);
+ saveCartExtras();
+}
 function isDelivery(){return document.querySelector('[name="cart-fulfillment"]:checked').value==='delivery'}
 let callCart={};try{const saved=JSON.parse(localStorage.getItem(CART_KEY));if(saved&&typeof saved==='object'&&!Array.isArray(saved))callCart=saved}catch(e){}
 function saveCallCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(callCart))}catch(e){}}
@@ -265,12 +328,13 @@ function cartEntries(){return Object.entries(callCart).map(([id,qty])=>({dish:ca
 function amount(price){const m=String(price).replace(/\s/g,'').match(/^(\d+(?:[,.]\d{1,2})?)€/);return m?Number(m[1].replace(',','.')):null}
 function euro(n){return n.toLocaleString('fr-FR',{style:'currency',currency:'EUR'})}
 function cartEstimate(rows){
- const prices=rows.map(({dish,qty})=>{
+ let subtotal=0,unknown=false;
+ for(const {dish,qty} of rows){
   const price=amount(dish.price);
-  return price===null?null:Math.round(price*100)*qty;
- });
- const subtotal=prices.reduce((sum,price)=>sum+(price??0),0);
- const unknown=prices.includes(null);
+  if(price===null)unknown=true;
+  const extras=selectedExtras(dish).reduce((sum,extra)=>sum+extra.price,0);
+  subtotal+=(Math.round((price??0)*100)+extras)*qty;
+ }
  if(!isDelivery())return {total:subtotal,unknown,deliveryText:''};
  if(!deliveryPricing)return {total:subtotal,unknown:true,deliveryText:'Livraison : tarif à confirmer par téléphone.'};
  const {fee,freeFrom}=deliveryPricing;
@@ -312,17 +376,26 @@ function updateCart(){
   const id=escapeHTML(d.id);
   const name=escapeHTML(d.name);
   const note=escapeHTML(cartNote(d.id));
-  return `<div class="cart-line"><div><strong>${name}</strong><small>${escapeHTML(d.price)} · ${escapeHTML(CATEGORIES[d.category])}</small>
+  return `<div class="cart-line" data-line-id="${id}"><div><strong>${name}</strong><small>${escapeHTML(d.price)} · ${escapeHTML(CATEGORIES[d.category])}</small>
   <details class="cart-note"><summary>${note?'Modifier la note':'Ajouter une note'}</summary><textarea rows="2" maxlength="200" data-note-id="${id}" aria-label="Note pour ${name}" placeholder="Par exemple : sans oignons">${note}</textarea></details>
-  <p class="cart-note-preview" ${note?'':'hidden'}>${note}</p></div>
+  <p class="cart-note-preview" ${note?'':'hidden'}>${note}</p>${extraChoices(d,true)}</div>
   <div class="cart-qty"><button type="button" data-cart-id="${id}" data-delta="-1" aria-label="Retirer un ${name}">−</button><span>${qty}</span><button type="button" data-cart-id="${id}" data-delta="1" aria-label="Ajouter un ${name}">+</button></div></div>`;
  }).join('');
+ updateCartTotals(rows);
+}
+function updateCartTotals(rows){
  const estimate=cartEstimate(rows);
  $('cart-delivery').textContent=estimate.deliveryText;
  $('cart-delivery').hidden=!rows.length||!estimate.deliveryText;
  $('cart-total').textContent=rows.length?estimateText(estimate):euro(0);
 }
 document.querySelector('.cart-fulfillment').addEventListener('change',updateCart);
+$('cart-lines').addEventListener('change',event=>{
+ const choices=event.target.closest('.extra-choices');
+ if(!choices)return;
+ storeExtras(choices.closest('[data-line-id]').dataset.lineId,choices);
+ updateCartTotals(cartEntries());
+});
 $('cart-lines').addEventListener('input',event=>{
  const field=event.target.closest('[data-note-id]');
  if(!field)return;
@@ -348,14 +421,15 @@ document.getElementById('cart-launch').addEventListener('click',openCart);
 document.getElementById('cart-close').addEventListener('click',closeCart);
 $('cart-browse').addEventListener('click',closeCart);
 document.getElementById('cart-overlay').addEventListener('click',e=>{if(e.target.id==='cart-overlay')closeCart()});
-document.getElementById('cart-lines').addEventListener('click',e=>{const b=e.target.closest('[data-cart-id]');if(!b)return;const id=b.dataset.cartId;callCart[id]=Math.max(0,Math.min(99,(Number(callCart[id])||0)+Number(b.dataset.delta)));if(!callCart[id]){delete callCart[id];delete cartNotes[id];saveCartNotes()}saveCallCart();updateCart()});
-document.getElementById('cart-clear').addEventListener('click',()=>{if(confirm('Vider toute votre liste ?')){callCart={};cartNotes=Object.create(null);saveCallCart();saveCartNotes();updateCart()}});
+document.getElementById('cart-lines').addEventListener('click',e=>{const b=e.target.closest('[data-cart-id]');if(!b)return;const id=b.dataset.cartId;callCart[id]=Math.max(0,Math.min(99,(Number(callCart[id])||0)+Number(b.dataset.delta)));if(!callCart[id]){delete callCart[id];delete cartNotes[id];delete cartExtras[id];saveCartNotes();saveCartExtras()}saveCallCart();updateCart()});
+document.getElementById('cart-clear').addEventListener('click',()=>{if(confirm('Vider toute votre liste ?')){callCart={};cartNotes=Object.create(null);for(const id of Object.keys(cartExtras))delete cartExtras[id];saveCartExtras();saveCallCart();saveCartNotes();updateCart()}});
 function orderText(){
  const rows=cartEntries();
  const estimate=cartEstimate(rows);
  const lines=rows.map(({dish,qty})=>{
   const note=cartNote(dish.id);
-  return `${qty} × ${dish.name} — ${dish.price}${note?'\n   Note : '+note:''}`;
+  const extras=selectedExtras(dish).map(extra=>extra.name+' (+'+euro(extra.price/100)+')');
+  return `${qty} × ${dish.name} — ${dish.price}${extras.length?'\n   Suppléments par portion : '+extras.join(', '):''}${note?'\n   Note : '+note:''}`;
  });
  return [
   "Bonjour O'Saveurs Braisées, je souhaite commander.",
@@ -407,6 +481,13 @@ detailGallery.addEventListener('touchend',event=>{
   touchStart=null;
   if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy))showDetailPhoto(detailPhotoIndex+(dx<0?1:-1));
 },{passive:true});
+function updateDetailPrice(){
+ const names=checkedExtras($('detail-extras'));
+ const extras=selectedDish.extras.filter(extra=>names.includes(extra.name)).reduce((total,extra)=>total+extra.price,0);
+ const base=amount(selectedDish.price);
+ $('detail-price').textContent=!extras?selectedDish.price:base===null?selectedDish.price+' + '+euro(extras/100):euro((Math.round(base*100)+extras)/100);
+}
+$('detail-extras').addEventListener('change',updateDetailPrice);
 function openDetail(id,trigger=null){
   const d=catalog.find(x=>String(x.id)===String(id)&&x.visible&&!hiddenCategories.has(x.category));
   if(!d)return;
@@ -416,8 +497,9 @@ function openDetail(id,trigger=null){
   document.getElementById('detail-title').textContent=d.name;
   showDetailPhoto(0);
   document.getElementById('detail-description').textContent=d.description||'Pour connaître la composition et les options, contactez directement le restaurant.';
-  document.getElementById('detail-price').textContent=d.price;
   showDishQuantity($('detail-list-qty'),d.id);
+  $('detail-extras').innerHTML=extraChoices(d);
+  updateDetailPrice();
   const share=$('detail-share');
   share.href='#plat='+encodeURIComponent(d.id);
   share.textContent='Partager ↗';
@@ -447,7 +529,7 @@ detailDialog.addEventListener('click',event=>{
  if(event.target===detailDialog&&(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom))closeDetail();
 });
 detailDialog.addEventListener('cancel',event=>{event.preventDefault();closeDetail()});
-document.getElementById('detail-add').addEventListener('click',()=>{if(!selectedDish)return;addDishToCart(selectedDish.id);closeDetail();openCart()});
+document.getElementById('detail-add').addEventListener('click',()=>{if(!selectedDish)return;storeExtras(selectedDish.id,$('detail-extras'));addDishToCart(selectedDish.id);closeDetail();openCart()});
 document.getElementById('detail-share').addEventListener('click',async e=>{e.preventDefault();if(!selectedDish)return;const url=new URL(location.href);url.hash='plat='+encodeURIComponent(selectedDish.id);try{await navigator.clipboard.writeText(url.href);e.target.textContent='✓ Lien copié'}catch{prompt('Copier le lien du plat',url.href)}});
 window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat=')){openDetail(safeDishId(location.hash.slice(6)))}});
 
