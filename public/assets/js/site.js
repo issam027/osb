@@ -24,7 +24,30 @@ function buildFilters(){
 }
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isSafeImage=url=>typeof url==='string'&&/^https:\/\/[^\s]+$/i.test(url)&&url.length<1001;
-function normalize(d,i){const images=[...new Set((Array.isArray(d.images)?d.images:[d.image]).filter(isSafeImage))].slice(0,8);return {id:String(d.id||('dish-'+i)),category:CATEGORIES[d.category]?d.category:(Object.keys(CATEGORIES)[0]||'plats'),name:String(d.name||'').slice(0,100),price:String(d.price||'À confirmer').slice(0,30),description:String(d.description||'').slice(0,500),image:images[0]||'',images,visible:d.visible!==false};}
+const galleryPhotos={
+  13: "https://cdn.website.dish.co/media/05/d1/4523552/O-SAVEURS-BRAISEES-OSAVEURBRAISE-6MARS-13-jpg.jpg",
+  40: "https://cdn.website.dish.co/media/bb/63/4530897/O-SAVEURS-BRAISEES-OSAVEURBRAISE-6MARS-40-jpg.jpg",
+  60: "https://cdn.website.dish.co/media/f5/e5/4530861/O-SAVEURS-BRAISEES-OSAVEURBRAISE-6MARS-60-jpg.jpg",
+  78: "https://cdn.website.dish.co/media/6f/c8/4530856/O-SAVEURS-BRAISEES-OSAVEURBRAISE-6MARS-78-jpg.jpg",
+  34: "https://cdn.website.dish.co/media/e8/2c/4530887/O-SAVEURS-BRAISEES-OSAVEURBRAISE-6MARS-34-jpg.jpg",
+  19: "https://cdn.website.dish.co/media/34/9c/4523547/O-SAVEURS-BRAISEES-OSAVEURBRAISE-6MARS-19-jpg.jpg",
+  33: "https://cdn.website.dish.co/media/c4/38/4530882/O-SAVEURS-BRAISEES-OSAVEURBRAISE-6MARS-33-jpg.jpg",
+};
+const defaultDishPhotos=new Map([
+  ["Formule Family", [galleryPhotos[13], galleryPhotos[40]]],
+  ["Hamburger steak — menu", [galleryPhotos[60]]],
+  ["Tagliatelles fermières", [galleryPhotos[78]]],
+  ["Wings ×8", [galleryPhotos[34]]],
+  ["Wings ×16", [galleryPhotos[34]]],
+  ["Frites de patate douce — normal", [galleryPhotos[19]]],
+  ["Frites de patate douce — XL", [galleryPhotos[19]]],
+  ["Riz tieb — normal", [galleryPhotos[33]]],
+  ["Riz tieb — XL", [galleryPhotos[33]]],
+]);
+function normalize(d,i){
+ const links=Array.isArray(d.images)?d.images:isSafeImage(d.image)?[d.image]:defaultDishPhotos.get(d.name)||[];
+ const images=[...new Set(links.filter(isSafeImage))].slice(0,8);
+ return {id:String(d.id||('dish-'+i)),category:CATEGORIES[d.category]?d.category:(Object.keys(CATEGORIES)[0]||'plats'),name:String(d.name||'').slice(0,100),price:String(d.price||'À confirmer').slice(0,30),description:String(d.description||'').slice(0,500),image:images[0]||'',images,visible:d.visible!==false};}
 let catalog=dishes.map(normalize);
 let fileHandle=null;
 let dirty=false;
