@@ -60,7 +60,7 @@ function render(cat=activeCategory){activeCategory=cat;const menu=document.getEl
 document.querySelector('.filters').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;activeCategory=b.dataset.filter;buildFilters();render();});
 buildFilters();
 const $=id=>document.getElementById(id);const shell=$('admin-shell');let adminAuthenticated=false;
-async function openAdmin(){try{const r=await fetch('/api/auth/session',{credentials:'same-origin'});const v=await r.json();adminAuthenticated=v.authenticated===true}catch(e){adminAuthenticated=false}shell.hidden=false;syncPageScroll();$('admin-login').hidden=adminAuthenticated;$('admin-panel').hidden=!adminAuthenticated;if(adminAuthenticated){drawAdmin();$('admin-search').focus()}else $('admin-user').focus()}
+async function openAdmin(){try{const r=await fetch('/api/auth/session',{credentials:'same-origin'});const v=await r.json();adminAuthenticated=v.authenticated===true}catch(e){adminAuthenticated=false}shell.hidden=false;syncPageScroll();$('admin-login').hidden=adminAuthenticated;$('admin-panel').hidden=!adminAuthenticated;if(adminAuthenticated){drawAdmin();shell.querySelector('.admin-tab.active').focus({preventScroll:true})}else $('admin-user').focus()}
 function closeAdmin(){shell.hidden=true;$('admin-modal').hidden=true;syncPageScroll();$('admin-open').focus()}
 $('admin-open').addEventListener('click',openAdmin);$('admin-cancel').addEventListener('click',closeAdmin);$('admin-close').addEventListener('click',closeAdmin);
 $('admin-login-form').addEventListener('submit',async e=>{
@@ -77,7 +77,14 @@ $('admin-rows').addEventListener('click',e=>{if(!adminAuthenticated)return;const
 function openEditor(d){editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.image||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
 $('admin-add').addEventListener('click',()=>openEditor(null));$('editor-cancel').addEventListener('click',()=>{$('admin-modal').hidden=true;$('admin-add').focus()});
 $('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const image=$('dish-image').value.trim();if(image&&!isSafeImage(image)){alert('L’image doit utiliser une URL HTTPS valide.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:$('dish-price').value.trim(),description:$('dish-description').value.trim(),image,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
-$('admin-export').addEventListener('click',()=>{const tab=$('admin-panel').dataset.currentTab;if(tab==='horaires'||tab==='annonces')$('settings-export').click();else saveMenu()});
+$('admin-export').addEventListener('click',async ()=>{
+ const tab=$('admin-panel').dataset.currentTab;
+ if(tab==='horaires'||tab==='annonces')$('settings-export').click();
+ else{
+  await saveMenu();
+  if($('admin-panel').dataset.currentTab==='categories')$('category-status').textContent=$('admin-file-status').textContent;
+ }
+});
 $('admin-import').addEventListener('click',()=>{const tab=$('admin-panel').dataset.currentTab;if(tab==='horaires'||tab==='annonces')$('settings-import').click();else $('admin-import-file').click()});$('admin-import-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;if(file.size>2e6){alert('Fichier trop volumineux.');return}try{const data=JSON.parse(await file.text());if(!Array.isArray(data.dishes)||data.dishes.length>1000||!data.dishes.every(d=>d&&typeof d.name==='string'&&d.name.trim()&&typeof d.category==='string'))throw Error('Format invalide');if(!confirm(`Remplacer la carte locale par ${data.dishes.length} plats ? Exportez votre carte actuelle avant de continuer.`))return;if(Array.isArray(data.categories))applyCategories(data.categories);else applyCategories(Object.entries(DEFAULT_CATEGORIES).map(([id,name])=>({id,name,visible:true})));catalog=data.dishes.map(normalize);persist();buildFilters();render();drawAdmin();drawCategories();setStatus('Carte importée. Cliquez sur « Enregistrer » pour la publier.');alert('Carte chargée. Cliquez sur « Enregistrer » pour la publier.')}catch(err){alert('Import impossible : fichier JSON de carte invalide.')}finally{e.target.value=''}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!shell.hidden){if(!$('admin-modal').hidden){$('admin-modal').hidden=true}else closeAdmin()}});
 
@@ -98,7 +105,7 @@ function drawCategories(){
 }
 function categoryChanged(message){
  markDirty();buildFilters();render();drawAdmin();drawCategories();updateCart();
- $('category-status').textContent=message+' Enregistrez menu.json pour publier.';
+ $('category-status').textContent=message+' Appuyez sur « Enregistrer » pour publier.';
 }
 function makeCategoryId(name){
  const base=name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,35)||'categorie';
@@ -385,6 +392,7 @@ loadMenu();
  const shared=document.querySelector('.admin-settings-tabs');
  function activate(name,focus=false){
    if(!panels[name])return;
+   if(panels[name].hidden)document.querySelector('.admin-main').scrollTop=0;
    if(name==='annonces')panels.annonces.appendChild(shared);
    else if(name==='horaires')panels.horaires.appendChild(shared);
    document.getElementById('admin-hours-fields').hidden=name!=='horaires';
