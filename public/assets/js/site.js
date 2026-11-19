@@ -24,7 +24,7 @@ function buildFilters(){
 }
 const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isSafeImage=url=>typeof url==='string'&&/^https:\/\/[^\s]+$/i.test(url)&&url.length<1001;
-function normalize(d,i){return {id:String(d.id||('dish-'+i)),category:CATEGORIES[d.category]?d.category:(Object.keys(CATEGORIES)[0]||'plats'),name:String(d.name||'').slice(0,100),price:String(d.price||'À confirmer').slice(0,30),description:String(d.description||'').slice(0,500),image:isSafeImage(d.image)?d.image:'',visible:d.visible!==false};}
+function normalize(d,i){const images=[...new Set((Array.isArray(d.images)?d.images:[d.image]).filter(isSafeImage))].slice(0,8);return {id:String(d.id||('dish-'+i)),category:CATEGORIES[d.category]?d.category:(Object.keys(CATEGORIES)[0]||'plats'),name:String(d.name||'').slice(0,100),price:String(d.price||'À confirmer').slice(0,30),description:String(d.description||'').slice(0,500),image:images[0]||'',images,visible:d.visible!==false};}
 let catalog=dishes.map(normalize);
 let fileHandle=null;
 let dirty=false;
@@ -109,9 +109,9 @@ fetch('/api/auth/session',{credentials:'same-origin'}).then(r=>r.json()).then(v=
 function drawAdmin(){if(!adminAuthenticated)return;const cats=categoryData();$('stat-total').textContent=catalog.length;$('stat-visible').textContent=catalog.filter(d=>d.visible).length;$('stat-categories').textContent=cats.length;const selected=$('admin-category').value;$('admin-category').innerHTML='<option value="all">Toutes les catégories</option>'+Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('admin-category').value=selected&&[...$('admin-category').options].some(x=>x.value===selected)?selected:'all';const q=$('admin-search').value.trim().toLocaleLowerCase('fr');const c=$('admin-category').value;const rows=catalog.filter(d=>(c==='all'||d.category===c)&&[d.name,d.description,d.category].join(' ').toLocaleLowerCase('fr').includes(q));$('admin-rows').innerHTML=rows.map(d=>`<tr><td><strong>${escapeHTML(d.name)}</strong><small>${escapeHTML(d.description.slice(0,90))}</small></td><td>${escapeHTML(CATEGORIES[d.category])}</td><td><strong>${escapeHTML(d.price)}</strong></td><td class="${d.visible?'':'off'}">${d.visible?'Visible':'Masqué'}</td><td><div class="row-actions"><button class="a-btn secondary" data-action="edit" data-id="${escapeHTML(d.id)}">Modifier</button><button class="a-btn secondary" data-action="toggle" data-id="${escapeHTML(d.id)}">${d.visible?'Masquer':'Afficher'}</button><button class="a-btn danger" data-action="delete" data-id="${escapeHTML(d.id)}">Supprimer</button></div></td></tr>`).join('')||'<tr><td colspan="5">Aucun plat trouvé.</td></tr>';$('admin-count').textContent=`${rows.length} plat(s) affiché(s)`}
 $('admin-search').addEventListener('input',drawAdmin);$('admin-category').addEventListener('change',drawAdmin);
 $('admin-rows').addEventListener('click',e=>{if(!adminAuthenticated)return;const btn=e.target.closest('button[data-action]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.id);if(!d)return;if(btn.dataset.action==='edit')openEditor(d);if(btn.dataset.action==='toggle'){d.visible=!d.visible;persist();render();drawAdmin()}if(btn.dataset.action==='delete'&&confirm(`Supprimer définitivement « ${d.name} » de la carte ?`)){catalog=catalog.filter(x=>x.id!==d.id);persist();render();drawAdmin()}});
-function openEditor(d){editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.image||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
+function openEditor(d){editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.images.join('\n')||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
 $('admin-add').addEventListener('click',()=>openEditor(null));$('editor-cancel').addEventListener('click',()=>{$('admin-modal').hidden=true;$('admin-add').focus()});
-$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const image=$('dish-image').value.trim();if(image&&!isSafeImage(image)){alert('Ce lien ne permet pas d’afficher la photo. Vérifiez-le ou laissez le champ vide.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:$('dish-price').value.trim(),description:$('dish-description').value.trim(),image,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
+$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const images=[...new Set($('dish-image').value.split(/\r?\n/).map(link=>link.trim()).filter(Boolean))];if(images.length>8||!images.every(isSafeImage)){alert('Ajoutez jusqu’à 8 liens de photos valides, un par ligne.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:$('dish-price').value.trim(),description:$('dish-description').value.trim(),image:images[0]||'',images,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
 $('admin-export').addEventListener('click',async ()=>{
  const tab=$('admin-panel').dataset.currentTab;
  if(['horaires','annonces','livraison'].includes(tab))$('settings-export').click();
@@ -294,7 +294,33 @@ function setDishHash(hash){
 }
 const detailDialog=$('detail-overlay');
 const detailPhoto=$('detail-photo');
+let detailPhotoIndex=0;
+const detailGallery=$('detail-gallery');
+function showDetailPhoto(index){
+  const images=selectedDish.images;
+  const count=images.length;
+  detailPhotoIndex=count?(index+count)%count:0;
+  detailGallery.hidden=!count;
+  $('detail-photo-controls').hidden=count<2;
+  $('detail-photo-count').textContent=count>1?`${detailPhotoIndex+1} / ${count}`:'';
+  detailPhoto.hidden=!count;
+  detailPhoto.alt=count>1?`${selectedDish.name} — photo ${detailPhotoIndex+1}`:selectedDish.name;
+  if(count)detailPhoto.src=images[detailPhotoIndex];
+  else detailPhoto.removeAttribute('src');
+}
 detailPhoto.addEventListener('error',()=>{detailPhoto.hidden=true});
+$('detail-photo-prev').addEventListener('click',()=>showDetailPhoto(detailPhotoIndex-1));
+$('detail-photo-next').addEventListener('click',()=>showDetailPhoto(detailPhotoIndex+1));
+let touchStart;
+detailGallery.addEventListener('touchstart',event=>{touchStart=event.touches.length===1?event.touches[0]:null},{passive:true});
+detailGallery.addEventListener('touchend',event=>{
+  if(!touchStart||selectedDish?.images.length<2)return;
+  const touch=event.changedTouches[0];
+  const dx=touch.clientX-touchStart.clientX;
+  const dy=touch.clientY-touchStart.clientY;
+  touchStart=null;
+  if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy))showDetailPhoto(detailPhotoIndex+(dx<0?1:-1));
+},{passive:true});
 function openDetail(id,trigger=null){
   const d=catalog.find(x=>String(x.id)===String(id)&&x.visible&&!hiddenCategories.has(x.category));
   if(!d)return;
@@ -302,10 +328,7 @@ function openDetail(id,trigger=null){
   if(!detailDialog.open)lastDetailFocus=trigger;
   document.getElementById('detail-category').textContent=CATEGORIES[d.category]||d.category;
   document.getElementById('detail-title').textContent=d.name;
-  detailPhoto.hidden=!d.image;
-  detailPhoto.alt=d.image?d.name:'';
-  if(d.image)detailPhoto.src=d.image;
-  else detailPhoto.removeAttribute('src');
+  showDetailPhoto(0);
   document.getElementById('detail-description').textContent=d.description||'Pour connaître la composition et les options, contactez directement le restaurant.';
   document.getElementById('detail-price').textContent=d.price;
   const share=$('detail-share');

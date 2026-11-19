@@ -264,3 +264,7 @@ body{overflow-x:hidden}
 @media(max-width:700px){.back-to-top{bottom:78px}}
 
 .admin-top .admin-close{flex:none;display:grid;place-items:center;width:44px;height:44px;padding:0;border-radius:50%;font-size:24px;line-height:1}
+
+.detail-gallery{touch-action:pan-y}
+.detail-photo-controls:not([hidden]){display:flex;align-items:center;justify-content:center;gap:16px;margin-top:6px}
+.detail-photo-controls button{min-width:44px;min-height:44px;border:1px solid #b89b84;border-radius:50%;background:#eee1d1;color:#38251b;font-size:22px;cursor:pointer}
