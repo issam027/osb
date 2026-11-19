@@ -201,7 +201,7 @@ body{background:#100e0c}
   .admin-top{gap:8px}
   .admin-top .eyebrow{display:none}
   .admin-top h2{font-size:21px}
-  .admin-tabbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:8px}
+  .admin-tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:8px}
   .admin-tab{min-height:44px;padding:6px 2px;font-size:12px}
   .admin-table-wrap{overflow:visible;border:0}
   .admin-table,.admin-table tbody{display:block;min-width:0}
@@ -246,3 +246,13 @@ body{overflow-x:hidden}
 .photo-lightbox{overscroll-behavior:contain}
 #carte,#galerie,#experience,#esprit,#infos,#questions{scroll-margin-top:95px}
 @media(max-width:700px){.admin-login{max-height:calc(100dvh - 12px)}}
+
+.cart-fulfillment{margin:16px 0 0;padding:10px 12px;border:1px solid #89664f;border-radius:8px}
+.cart-fulfillment label{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-right:12px}
+.cart-fulfillment input{accent-color:#f1b982}
+.cart-line>div:first-child{min-width:0;overflow-wrap:anywhere}
+.cart-note{margin-top:8px}
+.cart-note summary{color:#f1b982;cursor:pointer;font-size:13px;min-height:36px;display:list-item;align-content:center}
+.cart-note textarea{width:100%;padding:8px;border:1px solid #b88c69;border-radius:6px;background:#36241a;color:#fff;font:inherit;font-size:16px}
+.cart-note-preview{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font-size:13px}
+#admin-delivery-fields label[hidden]{display:none}

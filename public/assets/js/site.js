@@ -64,12 +64,27 @@ function render(cat=activeCategory){activeCategory=cat;const menu=document.getEl
 document.querySelector('.filters').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;activeCategory=b.dataset.filter;buildFilters();render();});
 buildFilters();
 const $=id=>document.getElementById(id);const shell=$('admin-shell');let adminAuthenticated=false;
-async function openAdmin(){try{const r=await fetch('/api/auth/session',{credentials:'same-origin'});const v=await r.json();adminAuthenticated=v.authenticated===true}catch(e){adminAuthenticated=false}shell.hidden=false;syncPageScroll();$('admin-login').hidden=adminAuthenticated;$('admin-panel').hidden=!adminAuthenticated;if(adminAuthenticated){drawAdmin();shell.querySelector('.admin-tab.active').focus({preventScroll:true})}else $('admin-user').focus()}
-function closeAdmin(){shell.hidden=true;$('admin-modal').hidden=true;syncPageScroll();$('admin-open').focus()}
+async function openAdmin(){try{const r=await fetch('/api/auth/session',{credentials:'same-origin'});const v=await r.json();adminAuthenticated=v.authenticated===true}catch(e){adminAuthenticated=false}clearAdminStatuses();shell.hidden=false;syncPageScroll();$('admin-login').hidden=adminAuthenticated;$('admin-panel').hidden=!adminAuthenticated;if(adminAuthenticated){drawAdmin();shell.querySelector('.admin-tab.active').focus({preventScroll:true})}else $('admin-user').focus()}
+const publicationStatusIds=['admin-file-status','category-status','settings-status','admin-action-status'];
+let confirmationTimer;
+function clearAdminStatuses(){
+ clearTimeout(confirmationTimer);
+ for(const id of ['category-status','settings-status','admin-action-status','admin-error'])$(id).textContent='';
+ if($('admin-file-status').textContent===SAVE_CONFIRMATION)setStatus('');
+}
+function expireSaveConfirmation(){
+ clearTimeout(confirmationTimer);
+ confirmationTimer=setTimeout(()=>{
+  for(const id of publicationStatusIds){
+   if($(id).textContent===SAVE_CONFIRMATION)$(id).textContent='';
+  }
+ },8000);
+}
+function closeAdmin(){clearAdminStatuses();shell.hidden=true;$('admin-modal').hidden=true;syncPageScroll();$('admin-open').focus()}
 $('admin-open').addEventListener('click',openAdmin);$('admin-cancel').addEventListener('click',closeAdmin);
 $('admin-login-form').addEventListener('submit',async e=>{
  e.preventDefault();const button=$('admin-login-form').querySelector('[type=submit]');button.disabled=true;
- try{const response=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({username:$('admin-user').value.trim(),password:$('admin-pass').value})});if(response.status===401)throw Error('Vérifiez votre identifiant et votre mot de passe.');if(!response.ok)throw Error('L’Espace pro est indisponible pour le moment. Réessayez plus tard.');adminAuthenticated=true;$('admin-login').hidden=true;$('admin-panel').hidden=false;$('admin-pass').value='';$('admin-error').textContent='';drawAdmin();}
+ try{const response=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({username:$('admin-user').value.trim(),password:$('admin-pass').value})});if(response.status===401)throw Error('Vérifiez votre identifiant et votre mot de passe.');if(!response.ok)throw Error('L’Espace pro est indisponible pour le moment. Réessayez plus tard.');adminAuthenticated=true;clearAdminStatuses();$('admin-login').hidden=true;$('admin-panel').hidden=false;$('admin-pass').value='';$('admin-error').textContent='';drawAdmin();}
  catch(err){$('admin-error').textContent=err instanceof TypeError?'Vérifiez votre connexion puis réessayez.':err.message}finally{button.disabled=false}
 });
 $('admin-logout').addEventListener('click',async()=>{
@@ -98,11 +113,12 @@ $('admin-add').addEventListener('click',()=>openEditor(null));$('editor-cancel')
 $('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const image=$('dish-image').value.trim();if(image&&!isSafeImage(image)){alert('Ce lien ne permet pas d’afficher la photo. Vérifiez-le ou laissez le champ vide.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:$('dish-price').value.trim(),description:$('dish-description').value.trim(),image,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
 $('admin-export').addEventListener('click',async ()=>{
  const tab=$('admin-panel').dataset.currentTab;
- if(tab==='horaires'||tab==='annonces')$('settings-export').click();
+ if(['horaires','annonces','livraison'].includes(tab))$('settings-export').click();
  else{
-  await saveMenu();
+  const saved=await saveMenu();
   $('admin-action-status').textContent=$('admin-file-status').textContent;
   if($('admin-panel').dataset.currentTab==='categories')$('category-status').textContent=$('admin-file-status').textContent;
+  if(saved)expireSaveConfirmation();
  }
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!shell.hidden){if(!$('admin-modal').hidden){$('admin-modal').hidden=true}else closeAdmin()}});
@@ -174,21 +190,95 @@ drawAdmin=function(){oldDrawAdmin();drawCategories()};
 
 /* Liste de commande locale, sans transmission automatique */
 const CART_KEY='osaveurs-call-list-v1';
+const CART_NOTES_KEY='osaveurs-call-notes-v1';
+let deliveryPricing=null;
+let cartNotes=Object.create(null);
+try{Object.assign(cartNotes,JSON.parse(localStorage.getItem(CART_NOTES_KEY)))}catch(e){}
+function saveCartNotes(){try{localStorage.setItem(CART_NOTES_KEY,JSON.stringify(cartNotes))}catch(e){}}
+function cartNote(id){return typeof cartNotes[id]==='string'?cartNotes[id].slice(0,200):''}
+function isDelivery(){return document.querySelector('[name="cart-fulfillment"]:checked').value==='delivery'}
 let callCart={};try{const saved=JSON.parse(localStorage.getItem(CART_KEY));if(saved&&typeof saved==='object'&&!Array.isArray(saved))callCart=saved}catch(e){}
 function saveCallCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(callCart))}catch(e){}}
 function cartEntries(){return Object.entries(callCart).map(([id,qty])=>({dish:catalog.find(d=>d.id===id&&d.visible&&!hiddenCategories.has(d.category)),qty:Math.max(0,Math.min(99,Number(qty)||0))})).filter(x=>x.dish&&x.qty>0)}
 function amount(price){const m=String(price).replace(/\s/g,'').match(/^(\d+(?:[,.]\d{1,2})?)€/);return m?Number(m[1].replace(',','.')):null}
 function euro(n){return n.toLocaleString('fr-FR',{style:'currency',currency:'EUR'})}
-function updateCart(){const rows=cartEntries();const count=rows.reduce((a,r)=>a+r.qty,0);document.getElementById('cart-count').textContent=count;document.getElementById('cart-lines').innerHTML=rows.map(({dish:d,qty})=>`<div class="cart-line"><div><strong>${escapeHTML(d.name)}</strong><small>${escapeHTML(d.price)} · ${escapeHTML(CATEGORIES[d.category])}</small></div><div class="cart-qty"><button type="button" data-cart-id="${escapeHTML(d.id)}" data-delta="-1" aria-label="Retirer un ${escapeHTML(d.name)}">−</button><span>${qty}</span><button type="button" data-cart-id="${escapeHTML(d.id)}" data-delta="1" aria-label="Ajouter un ${escapeHTML(d.name)}">+</button></div></div>`).join('')||'<p class="cart-explain">Votre liste est vide. Choisissez des plats dans la carte.</p>';let sum=0,unknown=false;rows.forEach(({dish,qty})=>{const p=amount(dish.price);if(p===null)unknown=true;else sum+=p*qty});document.getElementById('cart-total').textContent=unknown?euro(sum)+' + prix à confirmer':euro(sum);document.getElementById('cart-copy').disabled=!rows.length;document.getElementById('cart-clear').disabled=!rows.length}
+function cartEstimate(rows){
+ const prices=rows.map(({dish,qty})=>{
+  const price=amount(dish.price);
+  return price===null?null:Math.round(price*100)*qty;
+ });
+ const subtotal=prices.reduce((sum,price)=>sum+(price??0),0);
+ const unknown=prices.includes(null);
+ if(!isDelivery())return {total:subtotal,unknown,deliveryText:''};
+ if(!deliveryPricing)return {total:subtotal,unknown:true,deliveryText:'Livraison : tarif à confirmer par téléphone.'};
+ const {fee,freeFrom}=deliveryPricing;
+ if(freeFrom!==null&&subtotal<freeFrom&&unknown){
+  return {total:subtotal,unknown:true,deliveryText:'Livraison : '+euro(fee/100)+', offerte dès '+euro(freeFrom/100)+'. Frais à confirmer selon le total.'};
+ }
+ const charge=freeFrom!==null&&subtotal>=freeFrom?0:fee;
+ const rule=freeFrom!==null&&charge?' · offerte dès '+euro(freeFrom/100):'';
+ return {total:subtotal+charge,unknown,deliveryText:charge?'Livraison : '+euro(charge/100)+rule:'Livraison offerte'};
+}
+function estimateText({total,unknown}){
+ return unknown?(total?euro(total/100)+' + montant à confirmer':'À confirmer'):euro(total/100);
+}
+function updateCart(){
+ const rows=cartEntries();
+ $('cart-count').textContent=rows.reduce((count,row)=>count+row.qty,0);
+ $('cart-lines').innerHTML=rows.map(({dish:d,qty})=>{
+  const id=escapeHTML(d.id);
+  const name=escapeHTML(d.name);
+  const note=escapeHTML(cartNote(d.id));
+  return `<div class="cart-line"><div><strong>${name}</strong><small>${escapeHTML(d.price)} · ${escapeHTML(CATEGORIES[d.category])}</small>
+  <details class="cart-note"><summary>${note?'Modifier la note':'Ajouter une note'}</summary><textarea rows="2" maxlength="200" data-note-id="${id}" aria-label="Note pour ${name}" placeholder="Par exemple : sans oignons">${note}</textarea></details>
+  <p class="cart-note-preview" ${note?'':'hidden'}>${note}</p></div>
+  <div class="cart-qty"><button type="button" data-cart-id="${id}" data-delta="-1" aria-label="Retirer un ${name}">−</button><span>${qty}</span><button type="button" data-cart-id="${id}" data-delta="1" aria-label="Ajouter un ${name}">+</button></div></div>`;
+ }).join('')||'<p class="cart-explain">Votre liste est vide. Choisissez des plats dans la carte.</p>';
+ const estimate=cartEstimate(rows);
+ $('cart-delivery').textContent=estimate.deliveryText;
+ $('cart-delivery').hidden=!rows.length||!estimate.deliveryText;
+ $('cart-total').textContent=rows.length?estimateText(estimate):euro(0);
+ $('cart-copy').disabled=!rows.length;
+ $('cart-clear').disabled=!rows.length;
+}
+document.querySelector('.cart-fulfillment').addEventListener('change',updateCart);
+$('cart-lines').addEventListener('input',event=>{
+ const field=event.target.closest('[data-note-id]');
+ if(!field)return;
+ const note=field.value.trim();
+ if(note)cartNotes[field.dataset.noteId]=note;
+ else delete cartNotes[field.dataset.noteId];
+ const line=field.closest('.cart-line');
+ const preview=line.querySelector('.cart-note-preview');
+ preview.textContent=note;
+ preview.hidden=!note;
+ line.querySelector('summary').textContent=note?'Modifier la note':'Ajouter une note';
+ saveCartNotes();
+});
 function openCart(){document.getElementById('cart-overlay').hidden=false;syncPageScroll();updateCart();document.getElementById('cart-close').focus()}
 function closeCart(){document.getElementById('cart-overlay').hidden=true;syncPageScroll();document.getElementById('cart-launch').focus()}
 document.getElementById('menu-grid').addEventListener('click',e=>{const btn=e.target.closest('[data-add-id]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.addId&&x.visible);if(!d)return;callCart[d.id]=Math.min(99,(Number(callCart[d.id])||0)+1);saveCallCart();updateCart();btn.textContent='✓ Ajouté à la liste';setTimeout(()=>{if(btn.isConnected)btn.textContent='+ Ajouter à ma liste'},900)});
 document.getElementById('cart-launch').addEventListener('click',openCart);
 document.getElementById('cart-close').addEventListener('click',closeCart);
 document.getElementById('cart-overlay').addEventListener('click',e=>{if(e.target.id==='cart-overlay')closeCart()});
-document.getElementById('cart-lines').addEventListener('click',e=>{const b=e.target.closest('[data-cart-id]');if(!b)return;const id=b.dataset.cartId;callCart[id]=Math.max(0,Math.min(99,(Number(callCart[id])||0)+Number(b.dataset.delta)));if(!callCart[id])delete callCart[id];saveCallCart();updateCart()});
-document.getElementById('cart-clear').addEventListener('click',()=>{if(confirm('Vider toute votre liste ?')){callCart={};saveCallCart();updateCart()}});
-function orderText(){const rows=cartEntries();let total=0,unknown=false;const lines=rows.map(({dish:d,qty})=>{const p=amount(d.price);if(p===null)unknown=true;else total+=p*qty;return `${qty} × ${d.name} — ${d.price}`});return `Bonjour O'Saveurs Braisées, je souhaite commander :\n\n${lines.join('\n')}\n\nTotal indicatif : ${euro(total)}${unknown?' + tarifs à confirmer':''}\nMerci de me confirmer les disponibilités et le montant final.`}
+document.getElementById('cart-lines').addEventListener('click',e=>{const b=e.target.closest('[data-cart-id]');if(!b)return;const id=b.dataset.cartId;callCart[id]=Math.max(0,Math.min(99,(Number(callCart[id])||0)+Number(b.dataset.delta)));if(!callCart[id]){delete callCart[id];delete cartNotes[id];saveCartNotes()}saveCallCart();updateCart()});
+document.getElementById('cart-clear').addEventListener('click',()=>{if(confirm('Vider toute votre liste ?')){callCart={};cartNotes=Object.create(null);saveCallCart();saveCartNotes();updateCart()}});
+function orderText(){
+ const rows=cartEntries();
+ const estimate=cartEstimate(rows);
+ const lines=rows.map(({dish,qty})=>{
+  const note=cartNote(dish.id);
+  return `${qty} × ${dish.name} — ${dish.price}${note?'\n   Note : '+note:''}`;
+ });
+ return [
+  "Bonjour O'Saveurs Braisées, je souhaite commander.",
+  isDelivery()?'Mode : livraison':'Mode : à emporter',
+  ...lines,
+  estimate.deliveryText,
+  'Total indicatif : '+estimateText(estimate),
+  'Merci de me confirmer les disponibilités et le montant final.'
+ ].filter(Boolean).join('\n');
+}
 document.getElementById('cart-copy').addEventListener('click',async()=>{const t=orderText();try{await navigator.clipboard.writeText(t);document.getElementById('cart-copy').textContent='✓ Liste copiée';setTimeout(()=>document.getElementById('cart-copy').textContent='Copier ma liste',2000)}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();if(ok)alert('Liste copiée. Appelez maintenant le restaurant.');else prompt('Copiez votre liste :',t)}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.getElementById('cart-overlay').hidden)closeCart()});
 updateCart();
@@ -328,9 +418,11 @@ if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(
    for(const d of [ann.start,ann.end])if(d&&!/^\d{4}-\d{2}-\d{2}$/.test(d))throw Error('Date invalide');
    if(ann.enabled&&(!ann.title||!ann.message||!ann.start||!ann.end))throw Error('Complétez le titre, le message et les deux dates');
    if(ann.start&&ann.end&&ann.start>ann.end)throw Error('La date de fin doit suivre le début');
-   return {version:1,phone,hours,announcement:ann};
+   return {version:1,phone,hours,announcement:ann,delivery:input.delivery??null};
  }
  function renderPublic(){
+   deliveryPricing=settings.delivery??null;
+   updateCart();
    const phone=settings.phone, href='tel:'+phoneHref(phone);
    document.querySelectorAll('a[href^="tel:"]').forEach(a=>{
      a.href=href;
@@ -353,7 +445,33 @@ if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(
    el('announcement-mini').dataset.active=active?'true':'false';
    if(!active)el('announcement-mini').hidden=true;
  }
+ function toggleDeliveryFields(){
+   const mode=el('delivery-mode').value;
+   el('delivery-fee-field').hidden=mode!=='fixed'&&mode!=='threshold';
+   el('delivery-threshold-field').hidden=mode!=='threshold';
+ }
+ el('delivery-mode').addEventListener('change',toggleDeliveryFields);
+ function readDelivery(){
+   const mode=el('delivery-mode').value;
+   if(mode==='unconfigured')return null;
+   if(mode==='free')return {fee:0,freeFrom:null};
+   function cents(id,label){
+     const value=el(id).value.trim().replace(',','.');
+     const amount=Math.round(Number(value)*100);
+     if(!/^\d{1,4}(?:\.\d{1,2})?$/.test(value)||amount<=0)throw Error(label+' : saisissez un montant supérieur à zéro.');
+     return amount;
+   }
+   return {
+     fee:cents('delivery-fee','Frais de livraison'),
+     freeFrom:mode==='threshold'?cents('delivery-threshold','Livraison gratuite dès'):null
+   };
+ }
  function drawSettings(){
+   const delivery=settings.delivery;
+   el('delivery-mode').value=!delivery?'unconfigured':delivery.fee===0?'free':delivery.freeFrom===null?'fixed':'threshold';
+   el('delivery-fee').value=delivery?.fee?String(delivery.fee/100).replace('.',','):'';
+   el('delivery-threshold').value=delivery?.freeFrom?String(delivery.freeFrom/100).replace('.',','):'';
+   toggleDeliveryFields();
    el('settings-phone').value=settings.phone;
    el('settings-hours').innerHTML=settings.hours.map((h,i)=>{
      const slots=h.slots;
@@ -372,7 +490,7 @@ if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(
      const slots=[...node.querySelectorAll('.settings-slot')].map(slot=>({open:slot.querySelector('.hours-open').value,close:slot.querySelector('.hours-close').value})).filter(x=>x.open||x.close);
      return {day:DAYS[i],closed,slots:closed?[]:slots};
    });
-   return validate({phone:el('settings-phone').value,hours,announcement:{
+   return validate({phone:el('settings-phone').value,hours,delivery:readDelivery(),announcement:{
      enabled:el('announcement-enabled').checked,title:el('announcement-admin-title').value,
      message:el('announcement-message').value,start:el('announcement-start').value,end:el('announcement-end').value
    }});
@@ -382,7 +500,7 @@ if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(
    catch(err){el('settings-status').textContent='Erreur : '+err.message}
  });
  el('settings-export').addEventListener('click',async()=>{
-   try{settings=readForm();await apiSave('/api/site',settings);renderPublic();el('settings-status').textContent=SAVE_CONFIRMATION;}
+   try{const next=readForm();await apiSave('/api/site',next);settings=next;renderPublic();el('settings-status').textContent=SAVE_CONFIRMATION;expireSaveConfirmation();}
    catch(err){el('settings-status').textContent='Erreur : '+err.message}
    el('admin-action-status').textContent=el('settings-status').textContent;
  });
@@ -405,14 +523,14 @@ loadMenu();
  function activate(name,focus=false){
    if(!panels[name])return;
    if(panels[name].hidden)document.querySelector('.admin-main').scrollTop=0;
-   if(name==='annonces')panels.annonces.appendChild(shared);
-   else if(name==='horaires')panels.horaires.appendChild(shared);
+   if(['horaires','annonces','livraison'].includes(name))panels[name].appendChild(shared);
+   document.getElementById('admin-delivery-fields').hidden=name!=='livraison';
    document.getElementById('admin-hours-fields').hidden=name!=='horaires';
    document.getElementById('admin-announcement-fields').hidden=name!=='annonces';
    buttons.forEach(b=>{const on=b.dataset.adminTab===name;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;if(on&&focus)b.focus()});
    Object.entries(panels).forEach(([key,p])=>p.hidden=key!==name);
    document.getElementById('admin-panel').dataset.currentTab=name;
-   const titles={plats:'Gestion des plats',categories:'Gestion des catégories',horaires:'Horaires & téléphone',annonces:'Gestion des annonces'};
+   const titles={plats:'Gestion des plats',categories:'Gestion des catégories',horaires:'Horaires & téléphone',annonces:'Gestion des annonces',livraison:'Tarifs de livraison'};
    document.getElementById('admin-section-title').textContent=titles[name];
    document.getElementById('admin-export').textContent='Enregistrer';
    document.getElementById('admin-export').setAttribute('aria-label','Publier les modifications de '+titles[name]);
