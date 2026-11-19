@@ -67,7 +67,7 @@ Le nom `osaveursbraisees` cible normalement l'adresse existante du compte. Véri
 
 ## 6. Conservation et sauvegarde
 
-Le premier chargement utilise les fichiers `public/assets/data/menu.json` et `site.json` comme valeurs initiales si KV est vide. **Aucune migration n'est nécessaire** si les données actuellement publiées sont celles de la V23 incluse dans l'archive. Si votre site en ligne contient des modifications plus récentes, remplacez ces deux fichiers avant le premier déploiement, ou importez leurs sauvegardes JSON dans l'espace pro puis cliquez sur Enregistrer.
+Le premier chargement utilise les fichiers `public/assets/data/menu.json` et `site.json` comme valeurs initiales si KV est vide. **Aucune migration n'est nécessaire** si les données actuellement publiées sont celles de la V23 incluse dans l'archive. Si votre site en ligne contient des modifications plus récentes, remplacez ces deux fichiers avant le premier déploiement, ou restaurez leurs sauvegardes JSON dans les clés KV correspondantes.
 
 Les données publiées résident ensuite dans KV (`osb:menu`, `osb:site`). Les fichiers statiques restent des valeurs de secours. Pour sauvegarder, utilisez la console Cloudflare KV ou exportez les données via l'API publique `/api/menu` et `/api/site` ; les sauvegardes de données sont distinctes des archives du code.
 

@@ -216,12 +216,14 @@ body{background:#100e0c}
   .admin-editor{max-height:calc(100dvh - 32px);padding:16px}
 }
 
-/* V19 : barre de commandes commune aux quatre onglets */
-.admin-action-status{font-size:12px;color:#e8c8ae;margin:0 0 12px;line-height:1.5}
-.admin-top .admin-actions{align-items:center}
+/* Actions de l’espace pro accessibles pendant le défilement */
+.admin-bottom{padding:12px 24px;border-top:1px solid #594d43}
+.admin-bottom .admin-actions{justify-content:flex-end}
+.admin-action-status{font-size:12px;color:#e8c8ae;margin:0 0 8px;line-height:1.5}
+.admin-action-status:empty{margin:0}
 @media(max-width:700px){
-  .admin-top .admin-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:6px}
-  .admin-top .admin-actions .a-btn{padding:6px;font-size:13px}
+  .admin-bottom{padding:8px 12px max(8px,env(safe-area-inset-bottom))}
+  .admin-bottom .admin-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 }
 
 /* V21 : conserver le grand bandeau, afficher un rappel compact uniquement après scroll */

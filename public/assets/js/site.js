@@ -62,13 +62,28 @@ buildFilters();
 const $=id=>document.getElementById(id);const shell=$('admin-shell');let adminAuthenticated=false;
 async function openAdmin(){try{const r=await fetch('/api/auth/session',{credentials:'same-origin'});const v=await r.json();adminAuthenticated=v.authenticated===true}catch(e){adminAuthenticated=false}shell.hidden=false;syncPageScroll();$('admin-login').hidden=adminAuthenticated;$('admin-panel').hidden=!adminAuthenticated;if(adminAuthenticated){drawAdmin();shell.querySelector('.admin-tab.active').focus({preventScroll:true})}else $('admin-user').focus()}
 function closeAdmin(){shell.hidden=true;$('admin-modal').hidden=true;syncPageScroll();$('admin-open').focus()}
-$('admin-open').addEventListener('click',openAdmin);$('admin-cancel').addEventListener('click',closeAdmin);$('admin-close').addEventListener('click',closeAdmin);
+$('admin-open').addEventListener('click',openAdmin);$('admin-cancel').addEventListener('click',closeAdmin);
 $('admin-login-form').addEventListener('submit',async e=>{
  e.preventDefault();const button=$('admin-login-form').querySelector('[type=submit]');button.disabled=true;
  try{const response=await fetch('/api/auth/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({username:$('admin-user').value.trim(),password:$('admin-pass').value})});const result=await response.json();if(!response.ok)throw Error(result.error||'Connexion impossible');adminAuthenticated=true;$('admin-login').hidden=true;$('admin-panel').hidden=false;$('admin-pass').value='';$('admin-error').textContent='';drawAdmin();}
  catch(err){$('admin-error').textContent=err.message}finally{button.disabled=false}
 });
-$('admin-logout').addEventListener('click',async()=>{try{await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'})}catch(e){}adminAuthenticated=false;$('admin-panel').hidden=true;$('admin-login').hidden=false;$('admin-user').value='';$('admin-pass').value='';$('admin-user').focus()});
+$('admin-logout').addEventListener('click',async()=>{
+ const button=$('admin-logout');
+ button.disabled=true;
+ try{
+  const response=await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'});
+  if(!response.ok)throw Error('Déconnexion impossible. Réessayez.');
+  adminAuthenticated=false;
+  $('admin-panel').hidden=true;
+  $('admin-login').hidden=false;
+  $('admin-user').value='';
+  $('admin-pass').value='';
+  closeAdmin();
+ }catch(e){
+  $('admin-action-status').textContent='Déconnexion impossible. Réessayez.';
+ }finally{button.disabled=false}
+});
 fetch('/api/auth/session',{credentials:'same-origin'}).then(r=>r.json()).then(v=>{adminAuthenticated=v.authenticated===true}).catch(()=>{});
 
 function drawAdmin(){if(!adminAuthenticated)return;const cats=categoryData();$('stat-total').textContent=catalog.length;$('stat-visible').textContent=catalog.filter(d=>d.visible).length;$('stat-categories').textContent=cats.length;const selected=$('admin-category').value;$('admin-category').innerHTML='<option value="all">Toutes les catégories</option>'+Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('admin-category').value=selected&&[...$('admin-category').options].some(x=>x.value===selected)?selected:'all';const q=$('admin-search').value.trim().toLocaleLowerCase('fr');const c=$('admin-category').value;const rows=catalog.filter(d=>(c==='all'||d.category===c)&&[d.name,d.description,d.category].join(' ').toLocaleLowerCase('fr').includes(q));$('admin-rows').innerHTML=rows.map(d=>`<tr><td><strong>${escapeHTML(d.name)}</strong><small>${escapeHTML(d.description.slice(0,90))}</small></td><td>${escapeHTML(CATEGORIES[d.category])}</td><td><strong>${escapeHTML(d.price)}</strong></td><td class="${d.visible?'':'off'}">${d.visible?'Visible':'Masqué'}</td><td><div class="row-actions"><button class="a-btn secondary" data-action="edit" data-id="${escapeHTML(d.id)}">Modifier</button><button class="a-btn secondary" data-action="toggle" data-id="${escapeHTML(d.id)}">${d.visible?'Masquer':'Afficher'}</button><button class="a-btn danger" data-action="delete" data-id="${escapeHTML(d.id)}">Supprimer</button></div></td></tr>`).join('')||'<tr><td colspan="5">Aucun plat trouvé.</td></tr>';$('admin-count').textContent=`${rows.length} plat(s) affiché(s) dans le tableau`}
@@ -82,10 +97,10 @@ $('admin-export').addEventListener('click',async ()=>{
  if(tab==='horaires'||tab==='annonces')$('settings-export').click();
  else{
   await saveMenu();
+  $('admin-action-status').textContent=$('admin-file-status').textContent;
   if($('admin-panel').dataset.currentTab==='categories')$('category-status').textContent=$('admin-file-status').textContent;
  }
 });
-$('admin-import').addEventListener('click',()=>{const tab=$('admin-panel').dataset.currentTab;if(tab==='horaires'||tab==='annonces')$('settings-import').click();else $('admin-import-file').click()});$('admin-import-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;if(file.size>2e6){alert('Fichier trop volumineux.');return}try{const data=JSON.parse(await file.text());if(!Array.isArray(data.dishes)||data.dishes.length>1000||!data.dishes.every(d=>d&&typeof d.name==='string'&&d.name.trim()&&typeof d.category==='string'))throw Error('Format invalide');if(!confirm(`Remplacer la carte locale par ${data.dishes.length} plats ? Exportez votre carte actuelle avant de continuer.`))return;if(Array.isArray(data.categories))applyCategories(data.categories);else applyCategories(Object.entries(DEFAULT_CATEGORIES).map(([id,name])=>({id,name,visible:true})));catalog=data.dishes.map(normalize);persist();buildFilters();render();drawAdmin();drawCategories();setStatus('Carte importée. Cliquez sur « Enregistrer » pour la publier.');alert('Carte chargée. Cliquez sur « Enregistrer » pour la publier.')}catch(err){alert('Import impossible : fichier JSON de carte invalide.')}finally{e.target.value=''}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!shell.hidden){if(!$('admin-modal').hidden){$('admin-modal').hidden=true}else closeAdmin()}});
 
 
@@ -366,13 +381,7 @@ if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(
  el('settings-export').addEventListener('click',async()=>{
    try{settings=readForm();const response=await apiSave('/api/site',settings);renderPublic();el('settings-status').textContent='Informations enregistrées sur Cloudflare. La diffusion peut prendre un peu de temps.';}
    catch(err){el('settings-status').textContent='Erreur : '+err.message}
- });
- el('settings-import').addEventListener('click',()=>el('settings-import-file').click());
- el('settings-import-file').addEventListener('change',async e=>{
-   const file=e.target.files[0];if(!file)return;
-   try{if(file.size>100000)throw Error('Fichier trop volumineux');settings=validate(JSON.parse(await file.text()));drawSettings();renderPublic();el('settings-status').textContent='Informations importées. Cliquez sur « Enregistrer » pour publier.'}
-   catch(err){el('settings-status').textContent='Import impossible : '+err.message}
-   finally{e.target.value=''}
+   el('admin-action-status').textContent=el('settings-status').textContent;
  });
  async function load(){
    try{const response=await fetch(SITE_PATH,{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);settings=validate(await response.json())}
@@ -400,14 +409,11 @@ loadMenu();
    buttons.forEach(b=>{const on=b.dataset.adminTab===name;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;if(on&&focus)b.focus()});
    Object.entries(panels).forEach(([key,p])=>p.hidden=key!==name);
    document.getElementById('admin-panel').dataset.currentTab=name;
-   const isSite=name==='horaires'||name==='annonces';
    const titles={plats:'Gestion des plats',categories:'Gestion des catégories',horaires:'Horaires & téléphone',annonces:'Gestion des annonces'};
    document.getElementById('admin-section-title').textContent=titles[name];
    document.getElementById('admin-export').textContent='Enregistrer';
-   document.getElementById('admin-import').textContent='Ouvrir '+(isSite?'site.json':'menu.json');
    document.getElementById('admin-export').setAttribute('aria-label','Publier les modifications de '+titles[name]);
-   document.getElementById('admin-import').setAttribute('aria-label','Importer '+(isSite?'site.json':'menu.json')+' pour '+titles[name]);
-   document.getElementById('admin-action-status').textContent='Les modifications sont enregistrées directement sur Cloudflare.';
+   document.getElementById('admin-action-status').textContent='';
  }
  buttons.forEach((b,i)=>{
    b.addEventListener('click',()=>activate(b.dataset.adminTab));
