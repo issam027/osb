@@ -280,3 +280,6 @@ body{overflow-x:hidden}
 .category-rename{flex-basis:100%;min-width:0}
 .category-rename label{margin-top:0}
 .category-rename .admin-actions{margin-top:8px}
+
+.dish .top:has(.dish-list-qty){flex-wrap:wrap;gap:6px 10px}
+.dish-list-qty:not([hidden]){display:inline-block;border-radius:999px;padding:4px 9px;background:#e9dac6;color:#512e1e;font-size:12px;font-weight:750}

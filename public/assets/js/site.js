@@ -88,7 +88,7 @@ async function saveMenu(){
 
 let activeCategory='all',editId=null;
 function persist(){markDirty()}
-function render(cat=activeCategory){activeCategory=cat;const menu=document.getElementById('menu-grid');menu.innerHTML=catalog.filter(d=>d.visible&&!hiddenCategories.has(d.category)&&(cat==='all'||d.category===cat)).map(d=>`<article class="dish" id="plat-${escapeHTML(d.id)}">${d.image?`<img class="dish-photo" src="${escapeHTML(d.image)}" loading="lazy" decoding="async" alt="${escapeHTML(d.name)}">`:''}<div class="eyebrow">${escapeHTML(CATEGORIES[d.category]||d.category)}</div><div class="top"><h3>${escapeHTML(d.name)}</h3></div><p>${escapeHTML(d.description)}</p><div class="top"><span class="price">${escapeHTML(d.price)}</span></div><button type="button" class="dish-more" data-detail-id="${escapeHTML(d.id)}" aria-label="Voir la fiche de ${escapeHTML(d.name)}">Découvrir le plat ↗</button><button type="button" class="add-dish" data-add-id="${escapeHTML(d.id)}" aria-label="Ajouter ${escapeHTML(d.name)} à ma commande">+ Ajouter à ma liste</button></article>`).join('')||'<p>Aucun plat disponible dans cette catégorie.</p>'}
+function render(cat=activeCategory){activeCategory=cat;const menu=document.getElementById('menu-grid');menu.innerHTML=catalog.filter(d=>d.visible&&!hiddenCategories.has(d.category)&&(cat==='all'||d.category===cat)).map(d=>`<article class="dish" id="plat-${escapeHTML(d.id)}">${d.image?`<img class="dish-photo" src="${escapeHTML(d.image)}" loading="lazy" decoding="async" alt="${escapeHTML(d.name)}">`:''}<div class="eyebrow">${escapeHTML(CATEGORIES[d.category]||d.category)}</div><div class="top"><h3>${escapeHTML(d.name)}</h3></div><p>${escapeHTML(d.description)}</p><div class="top"><span class="price">${escapeHTML(d.price)}</span><span class="dish-list-qty" data-list-qty="${escapeHTML(d.id)}" aria-live="polite" hidden></span></div><button type="button" class="dish-more" data-detail-id="${escapeHTML(d.id)}" aria-label="Voir la fiche de ${escapeHTML(d.name)}">Découvrir le plat ↗</button><button type="button" class="add-dish" data-add-id="${escapeHTML(d.id)}" aria-label="Ajouter ${escapeHTML(d.name)} à ma liste">+ Ajouter à ma liste</button></article>`).join('')||'<p>Aucun plat disponible dans cette catégorie.</p>';updateDishQuantities()}
 document.querySelector('.filters').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(!b)return;activeCategory=b.dataset.filter;buildFilters();render();});
 buildFilters();
 const $=id=>document.getElementById(id);const shell=$('admin-shell');let adminAuthenticated=false;
@@ -284,8 +284,21 @@ function cartEstimate(rows){
 function estimateText({total,unknown}){
  return unknown?(total?euro(total/100)+' + montant à confirmer':'À confirmer'):euro(total/100);
 }
+function updateDishQuantities(){
+ for(const badge of document.querySelectorAll('#menu-grid [data-list-qty]')){
+  const qty=Math.max(0,Math.min(99,Number(callCart[badge.dataset.listQty])||0));
+  const label=qty?`${qty} dans ma liste`:'';
+  badge.hidden=!qty;
+  if(badge.textContent!==label)badge.textContent=label;
+ }
+}
+function addDishToCart(id){
+ callCart[id]=Math.min(99,(Number(callCart[id])||0)+1);
+ saveCallCart();
+}
 function updateCart(){
  const rows=cartEntries();
+ updateDishQuantities();
  const empty=rows.length===0;
  const focusWasInside=$('cart-content').contains(document.activeElement);
  $('cart-empty').hidden=!empty;
@@ -322,7 +335,12 @@ $('cart-lines').addEventListener('input',event=>{
 });
 function openCart(){document.getElementById('cart-overlay').hidden=false;syncPageScroll();updateCart();document.getElementById('cart-close').focus()}
 function closeCart(){document.getElementById('cart-overlay').hidden=true;syncPageScroll();document.getElementById('cart-launch').focus()}
-document.getElementById('menu-grid').addEventListener('click',e=>{const btn=e.target.closest('[data-add-id]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.addId&&x.visible);if(!d)return;callCart[d.id]=Math.min(99,(Number(callCart[d.id])||0)+1);saveCallCart();updateCart();btn.textContent='✓ Ajouté à la liste';setTimeout(()=>{if(btn.isConnected)btn.textContent='+ Ajouter à ma liste'},900)});
+$('menu-grid').addEventListener('click',event=>{
+ const button=event.target.closest('[data-add-id]');
+ if(!button)return;
+ addDishToCart(button.dataset.addId);
+ updateCart();
+});
 document.getElementById('cart-launch').addEventListener('click',openCart);
 document.getElementById('cart-close').addEventListener('click',closeCart);
 $('cart-browse').addEventListener('click',closeCart);
@@ -425,7 +443,7 @@ detailDialog.addEventListener('click',event=>{
  if(event.target===detailDialog&&(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom))closeDetail();
 });
 detailDialog.addEventListener('cancel',event=>{event.preventDefault();closeDetail()});
-document.getElementById('detail-add').addEventListener('click',()=>{if(!selectedDish)return;callCart[selectedDish.id]=Math.min(99,(Number(callCart[selectedDish.id])||0)+1);saveCallCart();updateCart();closeDetail();openCart()});
+document.getElementById('detail-add').addEventListener('click',()=>{if(!selectedDish)return;addDishToCart(selectedDish.id);closeDetail();openCart()});
 document.getElementById('detail-share').addEventListener('click',async e=>{e.preventDefault();if(!selectedDish)return;const url=new URL(location.href);url.hash='plat='+encodeURIComponent(selectedDish.id);try{await navigator.clipboard.writeText(url.href);e.target.textContent='✓ Lien copié'}catch{prompt('Copier le lien du plat',url.href)}});
 window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat=')){openDetail(safeDishId(location.hash.slice(6)))}});
 
