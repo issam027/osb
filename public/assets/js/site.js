@@ -44,10 +44,15 @@ const defaultDishPhotos=new Map([
   ["Riz tieb — normal", [galleryPhotos[33]]],
   ["Riz tieb — XL", [galleryPhotos[33]]],
 ]);
+function formatDishPrice(value){
+ const price=String(value).trim();
+ const match=price.match(/^(\d{1,24})(?:[,.](\d{1,2}))?\s*€?$/);
+ return match?`${match[1]},${(match[2]||'').padEnd(2,'0')} €`:price;
+}
 function normalize(d,i){
  const links=Array.isArray(d.images)?d.images:isSafeImage(d.image)?[d.image]:defaultDishPhotos.get(d.name)||[];
  const images=[...new Set(links.filter(isSafeImage))].slice(0,8);
- return {id:String(d.id||('dish-'+i)),category:CATEGORIES[d.category]?d.category:(Object.keys(CATEGORIES)[0]||'plats'),name:String(d.name||'').slice(0,100),price:String(d.price||'À confirmer').slice(0,30),description:String(d.description||'').slice(0,500),image:images[0]||'',images,visible:d.visible!==false};}
+ return {id:String(d.id||('dish-'+i)),category:CATEGORIES[d.category]?d.category:(Object.keys(CATEGORIES)[0]||'plats'),name:String(d.name||'').slice(0,100),price:formatDishPrice(d.price||'À confirmer').slice(0,30),description:String(d.description||'').slice(0,500),image:images[0]||'',images,visible:d.visible!==false};}
 let catalog=dishes.map(normalize);
 let fileHandle=null;
 let dirty=false;
@@ -132,9 +137,9 @@ fetch('/api/auth/session',{credentials:'same-origin'}).then(r=>r.json()).then(v=
 function drawAdmin(){if(!adminAuthenticated)return;const cats=categoryData();$('stat-total').textContent=catalog.length;$('stat-visible').textContent=catalog.filter(d=>d.visible).length;$('stat-categories').textContent=cats.length;const selected=$('admin-category').value;$('admin-category').innerHTML='<option value="all">Toutes les catégories</option>'+Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('admin-category').value=selected&&[...$('admin-category').options].some(x=>x.value===selected)?selected:'all';const q=$('admin-search').value.trim().toLocaleLowerCase('fr');const c=$('admin-category').value;const rows=catalog.filter(d=>(c==='all'||d.category===c)&&[d.name,d.description,d.category].join(' ').toLocaleLowerCase('fr').includes(q));$('admin-rows').innerHTML=rows.map(d=>`<tr><td><strong>${escapeHTML(d.name)}</strong><small>${escapeHTML(d.description.slice(0,90))}</small></td><td>${escapeHTML(CATEGORIES[d.category])}</td><td><strong>${escapeHTML(d.price)}</strong></td><td class="${d.visible?'':'off'}">${d.visible?'Visible':'Masqué'}</td><td><div class="row-actions"><button class="a-btn secondary" data-action="edit" data-id="${escapeHTML(d.id)}">Modifier</button><button class="a-btn secondary" data-action="toggle" data-id="${escapeHTML(d.id)}">${d.visible?'Masquer':'Afficher'}</button><button class="a-btn danger" data-action="delete" data-id="${escapeHTML(d.id)}">Supprimer</button></div></td></tr>`).join('')||'<tr><td colspan="5">Aucun plat trouvé.</td></tr>';$('admin-count').textContent=`${rows.length} plat(s) affiché(s)`}
 $('admin-search').addEventListener('input',drawAdmin);$('admin-category').addEventListener('change',drawAdmin);
 $('admin-rows').addEventListener('click',e=>{if(!adminAuthenticated)return;const btn=e.target.closest('button[data-action]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.id);if(!d)return;if(btn.dataset.action==='edit')openEditor(d);if(btn.dataset.action==='toggle'){d.visible=!d.visible;persist();render();drawAdmin()}if(btn.dataset.action==='delete'&&confirm(`Supprimer définitivement « ${d.name} » de la carte ?`)){catalog=catalog.filter(x=>x.id!==d.id);persist();render();drawAdmin()}});
-function openEditor(d){editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.images.join('\n')||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
+function openEditor(d){editId=d?.id||null;$('editor-title').textContent=d?'Modifier le plat':'Ajouter un plat';$('dish-name').value=d?.name||'';$('dish-category').innerHTML=Object.entries(CATEGORIES).map(([k,v])=>`<option value="${escapeHTML(k)}">${escapeHTML(v)}</option>`).join('');$('dish-category').value=d?.category||Object.keys(CATEGORIES)[0];$('dish-price').value=d?.price.replace(/\s*€$/,'')||'';$('dish-description').value=d?.description||'';$('dish-image').value=d?.images.join('\n')||'';$('dish-visible').checked=d?.visible!==false;$('admin-modal').hidden=false;$('dish-name').focus()}
 $('admin-add').addEventListener('click',()=>openEditor(null));$('editor-cancel').addEventListener('click',()=>{$('admin-modal').hidden=true;$('admin-add').focus()});
-$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const images=[...new Set($('dish-image').value.split(/\r?\n/).map(link=>link.trim()).filter(Boolean))];if(images.length>8||!images.every(isSafeImage)){alert('Ajoutez jusqu’à 8 liens de photos valides, un par ligne.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:$('dish-price').value.trim(),description:$('dish-description').value.trim(),image:images[0]||'',images,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
+$('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuthenticated)return;const images=[...new Set($('dish-image').value.split(/\r?\n/).map(link=>link.trim()).filter(Boolean))];if(images.length>8||!images.every(isSafeImage)){alert('Ajoutez jusqu’à 8 liens de photos valides, un par ligne.');return}const next={id:editId||('custom-'+Date.now()+'-'+Math.random().toString(36).slice(2)),name:$('dish-name').value.trim(),category:$('dish-category').value,price:formatDishPrice($('dish-price').value),description:$('dish-description').value.trim(),image:images[0]||'',images,visible:$('dish-visible').checked};if(!next.name||!next.price)return;const i=catalog.findIndex(d=>d.id===editId);if(i>=0)catalog[i]=next;else catalog.unshift(next);persist();render();drawAdmin();$('admin-modal').hidden=true;$('admin-add').focus()});
 $('admin-export').addEventListener('click',async ()=>{
  const tab=$('admin-panel').dataset.currentTab;
  if(['horaires','annonces','livraison'].includes(tab))$('settings-export').click();
@@ -248,6 +253,11 @@ function estimateText({total,unknown}){
 }
 function updateCart(){
  const rows=cartEntries();
+ const empty=rows.length===0;
+ const focusWasInside=$('cart-content').contains(document.activeElement);
+ $('cart-empty').hidden=!empty;
+ $('cart-content').hidden=empty;
+ if(empty&&focusWasInside)$('cart-browse').focus({preventScroll:true});
  $('cart-count').textContent=rows.reduce((count,row)=>count+row.qty,0);
  $('cart-lines').innerHTML=rows.map(({dish:d,qty})=>{
   const id=escapeHTML(d.id);
@@ -257,13 +267,11 @@ function updateCart(){
   <details class="cart-note"><summary>${note?'Modifier la note':'Ajouter une note'}</summary><textarea rows="2" maxlength="200" data-note-id="${id}" aria-label="Note pour ${name}" placeholder="Par exemple : sans oignons">${note}</textarea></details>
   <p class="cart-note-preview" ${note?'':'hidden'}>${note}</p></div>
   <div class="cart-qty"><button type="button" data-cart-id="${id}" data-delta="-1" aria-label="Retirer un ${name}">−</button><span>${qty}</span><button type="button" data-cart-id="${id}" data-delta="1" aria-label="Ajouter un ${name}">+</button></div></div>`;
- }).join('')||'<p class="cart-explain">Votre liste est vide. Choisissez des plats dans la carte.</p>';
+ }).join('');
  const estimate=cartEstimate(rows);
  $('cart-delivery').textContent=estimate.deliveryText;
  $('cart-delivery').hidden=!rows.length||!estimate.deliveryText;
  $('cart-total').textContent=rows.length?estimateText(estimate):euro(0);
- $('cart-copy').disabled=!rows.length;
- $('cart-clear').disabled=!rows.length;
 }
 document.querySelector('.cart-fulfillment').addEventListener('change',updateCart);
 $('cart-lines').addEventListener('input',event=>{
@@ -284,6 +292,7 @@ function closeCart(){document.getElementById('cart-overlay').hidden=true;syncPag
 document.getElementById('menu-grid').addEventListener('click',e=>{const btn=e.target.closest('[data-add-id]');if(!btn)return;const d=catalog.find(x=>x.id===btn.dataset.addId&&x.visible);if(!d)return;callCart[d.id]=Math.min(99,(Number(callCart[d.id])||0)+1);saveCallCart();updateCart();btn.textContent='✓ Ajouté à la liste';setTimeout(()=>{if(btn.isConnected)btn.textContent='+ Ajouter à ma liste'},900)});
 document.getElementById('cart-launch').addEventListener('click',openCart);
 document.getElementById('cart-close').addEventListener('click',closeCart);
+$('cart-browse').addEventListener('click',closeCart);
 document.getElementById('cart-overlay').addEventListener('click',e=>{if(e.target.id==='cart-overlay')closeCart()});
 document.getElementById('cart-lines').addEventListener('click',e=>{const b=e.target.closest('[data-cart-id]');if(!b)return;const id=b.dataset.cartId;callCart[id]=Math.max(0,Math.min(99,(Number(callCart[id])||0)+Number(b.dataset.delta)));if(!callCart[id]){delete callCart[id];delete cartNotes[id];saveCartNotes()}saveCallCart();updateCart()});
 document.getElementById('cart-clear').addEventListener('click',()=>{if(confirm('Vider toute votre liste ?')){callCart={};cartNotes=Object.create(null);saveCallCart();saveCartNotes();updateCart()}});
