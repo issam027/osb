@@ -49,8 +49,9 @@ async function apiSave(path,data){
  const response=await fetch(path,{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(data)});
  const result=await response.json().catch(()=>({}));if(!response.ok)throw Error(result.error||'Enregistrement impossible');return result;
 }
+const SAVE_CONFIRMATION='La modification est enregistrée et sera visible prochainement.';
 async function saveMenu(){
- try{await apiSave('/api/menu',{version:2,restaurant:'O Saveurs Braisees',categories:categoryData(),dishes:catalog});dirty=false;setStatus('Carte enregistrée sur Cloudflare. La mise à jour peut prendre un peu de temps à apparaître partout.');return true;}
+ try{await apiSave('/api/menu',{version:2,restaurant:'O Saveurs Braisees',categories:categoryData(),dishes:catalog});dirty=false;setStatus(SAVE_CONFIRMATION);return true;}
  catch(err){setStatus('Erreur : '+err.message);return false;}
 }
 
@@ -378,7 +379,7 @@ if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(
    catch(err){el('settings-status').textContent='Erreur : '+err.message}
  });
  el('settings-export').addEventListener('click',async()=>{
-   try{settings=readForm();const response=await apiSave('/api/site',settings);renderPublic();el('settings-status').textContent='Informations enregistrées sur Cloudflare. La diffusion peut prendre un peu de temps.';}
+   try{settings=readForm();const response=await apiSave('/api/site',settings);renderPublic();el('settings-status').textContent=SAVE_CONFIRMATION;}
    catch(err){el('settings-status').textContent='Erreur : '+err.message}
    el('admin-action-status').textContent=el('settings-status').textContent;
  });
