@@ -36,7 +36,7 @@ async function loadMenu(){
     const data=await response.json();
     if(!Array.isArray(data.dishes)||!data.dishes.every(x=>x&&typeof x.name==='string'))throw new Error('Carte invalide');
     if(Array.isArray(data.categories))applyCategories(data.categories);else applyCategories(Object.entries(DEFAULT_CATEGORIES).map(([id,name])=>({id,name,visible:true})));catalog=data.dishes.map(normalize);
-    setStatus('Carte chargée depuis '+MENU_PATH+'.');
+    setStatus('');
   }catch(err){
     setStatus('Impossible de charger menu.json. Vérifiez la présence du fichier sur votre hébergement.');
   }
@@ -361,7 +361,6 @@ if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(
    el('announcement-message').value=settings.announcement.message;
    el('announcement-start').value=settings.announcement.start;
    el('announcement-end').value=settings.announcement.end;
-   el('settings-status').textContent='Informations chargées. Cliquez sur « Enregistrer » pour publier vos modifications.';
  }
  function readForm(){
    const hours=[...document.querySelectorAll('.settings-day')].map((node,i)=>{

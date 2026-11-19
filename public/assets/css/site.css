@@ -191,6 +191,7 @@ body{background:#100e0c}
 .admin-tab{border:1px solid #776453;border-radius:9px;background:#2a2621;color:#f1e6d9;padding:12px 16px;cursor:pointer;font-weight:650}
 .admin-tab.active{background:#a64625;border-color:#cc704e;color:white}
 .admin-tab:focus-visible{outline:3px solid #f6b582;outline-offset:2px}
+#admin-file-status:empty{display:none}
 .admin-tabpanel[hidden],.admin-settings-subsection[hidden]{display:none!important}
 .admin-settings-tabs{margin-top:0}
 .admin-settings-subsection h3{margin-top:0}
