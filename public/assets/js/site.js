@@ -41,7 +41,7 @@ async function loadMenu(){
     setStatus('La carte n’a pas pu être chargée. Actualisez la page pour réessayer.');
   }
   buildFilters();render();updateCart();
-  if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(6)),false);
+  if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(6)));
 }
 function setStatus(message){const el=document.getElementById('admin-file-status');if(el)el.textContent=message}
 function markDirty(){dirty=true;setStatus('Modifications non publiées. Cliquez sur « Enregistrer ».')}
@@ -291,42 +291,44 @@ function setDishHash(hash){
   // la fiche doit rester utilisable même sans mise à jour d'URL.
   try { history.replaceState(null,'',hash); } catch(err) { console.warn('Lien du plat non mis à jour',err); }
 }
-function openDetail(id,updateURL=true){
+const detailDialog=$('detail-overlay');
+function openDetail(id,trigger=null){
   const d=catalog.find(x=>String(x.id)===String(id)&&x.visible&&!hiddenCategories.has(x.category));
   if(!d)return;
-  const overlay=document.getElementById('detail-overlay');
-  if(!overlay)return;
-  selectedDish=d;lastDetailFocus=document.activeElement;
+  selectedDish=d;
+  if(!detailDialog.open)lastDetailFocus=trigger;
   document.getElementById('detail-category').textContent=CATEGORIES[d.category]||d.category;
   document.getElementById('detail-title').textContent=d.name;
   document.getElementById('detail-description').textContent=d.description||'Pour connaître la composition et les options, contactez directement le restaurant.';
   document.getElementById('detail-price').textContent=d.price;
-  document.getElementById('detail-share').href='#plat='+encodeURIComponent(d.id);
-  overlay.hidden=false;syncPageScroll();
-  document.getElementById('detail-close').focus();
-  if(updateURL)setDishHash('#plat='+encodeURIComponent(d.id));
+  const share=$('detail-share');
+  share.href='#plat='+encodeURIComponent(d.id);
+  share.textContent='Partager ce plat ↗';
+  if(!detailDialog.open)detailDialog.showModal();
+  detailDialog.scrollTop=0;
 }
 function closeDetail(){
-  const overlay=document.getElementById('detail-overlay');
-  if(!overlay||overlay.hidden)return;
-  overlay.hidden=true;syncPageScroll();
+  if(!detailDialog.open)return;
+  detailDialog.close();
   if(location.hash.startsWith('#plat='))setDishHash('#carte');
-  if(lastDetailFocus?.isConnected)lastDetailFocus.focus();
+  if(lastDetailFocus?.isConnected)lastDetailFocus.focus({preventScroll:true});
   selectedDish=null;
 }
 document.getElementById('menu-grid').addEventListener('click',e=>{
   const b=e.target.closest('[data-detail-id]');
   if(!b)return;
   e.preventDefault();
-  openDetail(b.dataset.detailId);
+  openDetail(b.dataset.detailId,b);
 });
 document.getElementById('detail-close').addEventListener('click',closeDetail);
-document.getElementById('detail-overlay').addEventListener('click',e=>{if(e.target.id==='detail-overlay')closeDetail()});
+detailDialog.addEventListener('click',event=>{
+ const bounds=detailDialog.getBoundingClientRect();
+ if(event.target===detailDialog&&(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom))closeDetail();
+});
+detailDialog.addEventListener('cancel',event=>{event.preventDefault();closeDetail()});
 document.getElementById('detail-add').addEventListener('click',()=>{if(!selectedDish)return;callCart[selectedDish.id]=Math.min(99,(Number(callCart[selectedDish.id])||0)+1);saveCallCart();updateCart();closeDetail();openCart()});
 document.getElementById('detail-share').addEventListener('click',async e=>{e.preventDefault();if(!selectedDish)return;const url=new URL(location.href);url.hash='plat='+encodeURIComponent(selectedDish.id);try{await navigator.clipboard.writeText(url.href);e.target.textContent='✓ Lien copié'}catch{prompt('Copier le lien du plat',url.href)}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.getElementById('detail-overlay').hidden)closeDetail()});
-window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat=')){openDetail(safeDishId(location.hash.slice(6)),false)}});
-if(location.hash.startsWith('#plat='))openDetail(safeDishId(location.hash.slice(6)),false);
+window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat=')){openDetail(safeDishId(location.hash.slice(6)))}});
 
 /* V13 — visionneuse des photographies de la galerie */
 (()=>{
@@ -579,12 +581,12 @@ loadMenu();
 
 /* V23 : verrouillage du défilement synchronisé avec les fenêtres réellement ouvertes */
 function syncPageScroll(){
- const ids=['admin-shell','cart-overlay','detail-overlay','photo-lightbox'];
+ const ids=['admin-shell','cart-overlay','photo-lightbox'];
  const opened=ids.some(id=>{const n=document.getElementById(id);return n&&!n.hidden});
  document.body.style.overflow=opened?'hidden':'';
  document.documentElement.style.overflow='';
 }
-const scrollOverlayIds=['admin-shell','cart-overlay','detail-overlay','photo-lightbox'];
+const scrollOverlayIds=['admin-shell','cart-overlay','photo-lightbox'];
 scrollOverlayIds.forEach(id=>{
  const n=document.getElementById(id);
  if(n)new MutationObserver(syncPageScroll).observe(n,{attributes:true,attributeFilter:['hidden']});
@@ -594,10 +596,15 @@ window.addEventListener('hashchange',()=>requestAnimationFrame(syncPageScroll));
 document.addEventListener('keydown',e=>{
  if(e.key!=='Escape')return;
  const photo=document.getElementById('photo-lightbox');
- const detail=document.getElementById('detail-overlay');
  const cart=document.getElementById('cart-overlay');
  const admin=document.getElementById('admin-shell');
- if(!photo.hidden||!detail.hidden||!cart.hidden||!admin.hidden)
+ if(!photo.hidden||!cart.hidden||!admin.hidden)
    requestAnimationFrame(syncPageScroll);
 });
 syncPageScroll();
+
+const backToTop=$('back-to-top');
+const pageStart=$('accueil');
+new IntersectionObserver(([entry])=>{
+ backToTop.hidden=entry.boundingClientRect.bottom>0;
+}).observe(pageStart);
