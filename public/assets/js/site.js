@@ -609,7 +609,22 @@ document.addEventListener('keydown',e=>{
 syncPageScroll();
 
 const backToTop=$('back-to-top');
-const pageStart=$('accueil');
-new IntersectionObserver(([entry])=>{
- backToTop.hidden=entry.boundingClientRect.bottom>0;
-}).observe(pageStart);
+const pageSections=[...document.querySelectorAll('section.section[id], #public-announcement')];
+function updateBackToTop(){
+ backToTop.hidden=window.scrollY<=8;
+}
+backToTop.addEventListener('click',event=>{
+ event.preventDefault();
+ const currentTop=window.scrollY;
+ const headerHeight=document.querySelector('.header').getBoundingClientRect().height;
+ let targetTop=0;
+ for(const section of pageSections){
+  if(section.hidden)continue;
+  const sectionTop=Math.max(0,Math.round(currentTop+section.getBoundingClientRect().top-headerHeight));
+  if(sectionTop<currentTop-8)targetTop=Math.max(targetTop,sectionTop);
+ }
+ window.scrollTo({top:targetTop,behavior:'instant'});
+});
+window.addEventListener('scroll',updateBackToTop,{passive:true});
+window.addEventListener('pageshow',updateBackToTop);
+updateBackToTop();
