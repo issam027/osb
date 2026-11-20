@@ -25,6 +25,7 @@ Ouvre **Espace pro** en bas du site et connecte-toi avec le compte `admin`. Les 
 | **Catégories** | Ajouter, renommer, réordonner ou masquer les catégories. Masquer une catégorie retire aussi ses plats de la carte publique en les conservant dans l’Espace pro. |
 | **Horaires** | Modifier le téléphone public et jusqu’à deux créneaux par jour. La case **Fermé** masque les champs d’heures du jour. |
 | **Annonces** | Programmer un bandeau public avec un titre, un message et une période. Les dates de début et de fin sont incluses. Pour retirer l’annonce, désactive-la et enregistre. |
+| **Photos** | Ajouter des photos du restaurant avec une légende par image. La galerie d’origine s’affiche tant qu’aucune photo personnalisée n’est publiée et réapparaît si tu retires toutes les photos. |
 | **Livraison** | Choisir la livraison gratuite, un tarif fixe, un tarif offert à partir d’un seuil ou un tarif à confirmer par téléphone. Le seuil s’applique au sous-total des plats. |
 
 Dans l’éditeur de plat, **Valider le plat** prépare le changement. Utilise ensuite **Enregistrer** en bas de l’Espace pro pour le publier. Les changements peuvent prendre un court délai avant d’être visibles pour tous.
@@ -41,7 +42,7 @@ Certaines photos de la galerie du restaurant servent de photos par défaut. Les 
 | [`src/worker.js`](src/worker.js) | Lecture des données publiques, validation des modifications et sessions de l’Espace pro. |
 | [`wrangler.jsonc`](wrangler.jsonc) | Configuration du Worker et de son stockage. |
 
-Le Worker Cloudflare `osaveursbraisees` sert les fichiers publics et les routes `/api/*`. Le binding `OSB_KV` relie le Worker au namespace `OSB_DATA`. `osb:menu` contient les plats et catégories. `osb:site` contient le téléphone, les horaires, l’annonce et la livraison. Les photos envoyées depuis l’Espace pro sont compressées en WebP et stockées séparément sous des clés `osb:photo:*`. Le menu conserve leurs chemins. Les écritures nécessitent une session administrateur. Un redéploiement du code conserve les données publiées dans KV.
+Le Worker Cloudflare `osaveursbraisees` sert les fichiers publics et les routes `/api/*`. Le binding `OSB_KV` relie le Worker au namespace `OSB_DATA`. `osb:menu` contient les plats et catégories. `osb:site` contient le téléphone, les horaires, l’annonce et la livraison. `osb:gallery` conserve les photos choisies pour la galerie et leurs légendes. Les photos envoyées depuis l’Espace pro sont compressées en WebP et stockées séparément sous des clés `osb:photo:*`. Le menu conserve leurs chemins. Les écritures nécessitent une session administrateur. Un redéploiement du code conserve les données publiées dans KV.
 
 ## Développer et déployer
 

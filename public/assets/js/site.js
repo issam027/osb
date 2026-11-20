@@ -207,7 +207,7 @@ function dishPhotoLinks(){
  }
  return [...new Set([...ordered,...uploadedPhotos])];
 }
-async function prepareDishPhoto(file){
+async function preparePhoto(file){
  if(file.size>25*1024*1024)throw Error('Choisissez une photo de moins de 25 Mo.');
  const bitmap=await createImageBitmap(file).catch(()=>{throw Error('Cette photo ne peut pas être ouverte. Essayez en JPEG, PNG ou WebP.');});
  try{
@@ -222,6 +222,15 @@ async function prepareDishPhoto(file){
   }
   throw Error('Cette photo est trop lourde. Essayez une image plus petite.');
  }finally{bitmap.close()}
+}
+async function uploadPhoto(file,signal){
+ const photo=await preparePhoto(file);
+ const response=await fetch('/api/photos',{method:'POST',body:photo,signal});
+ if(response.status===401)throw Error('Reconnectez-vous pour ajouter des photos.');
+ if(!response.ok)throw Error('Envoi impossible. Réessayez dans un instant.');
+ const {path}=await response.json();
+ if(!uploadedPhotoPath.test(path))throw Error('Envoi impossible. Réessayez dans un instant.');
+ return path;
 }
 $('dish-photo-files').addEventListener('change',async event=>{
  const files=[...event.target.files];
@@ -242,12 +251,7 @@ $('dish-photo-files').addEventListener('change',async event=>{
    if(controller.signal.aborted)break;
    status.textContent=`Envoi de la photo ${index+1} sur ${files.length}…`;
    try{
-    const photo=await prepareDishPhoto(file);
-    const response=await fetch('/api/photos',{method:'POST',body:photo,signal:controller.signal});
-    if(response.status===401)throw Error('Reconnectez-vous pour ajouter des photos.');
-    if(!response.ok)throw Error('Envoi impossible. Réessayez dans un instant.');
-    const {path}=await response.json();
-    if(!uploadedPhotoPath.test(path))throw Error('Envoi impossible. Réessayez dans un instant.');
+    const path=await uploadPhoto(file,controller.signal);
     if(controller.signal.aborted)break;
     const links=dishPhotoLinks();
     if(!links.includes(path)&&links.length>=8)throw Error('Chaque plat peut avoir jusqu’à 8 photos.');
@@ -306,6 +310,7 @@ $('admin-editor').addEventListener('submit',e=>{e.preventDefault();if(!adminAuth
 $('admin-export').addEventListener('click',async ()=>{
  const tab=$('admin-panel').dataset.currentTab;
  if(['horaires','annonces','livraison'].includes(tab))$('settings-export').click();
+ else if(tab==='photos')$('gallery-save').click();
  else{
   const publish=$('admin-export');
   publish.disabled=true;
@@ -730,20 +735,26 @@ window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat='))
 
 /* V13 — visionneuse des photographies de la galerie */
 (()=>{
- const tiles=Array.from(document.querySelectorAll('#galerie .photo-tile'));
+ const grid=document.querySelector('#galerie .photo-grid');
+ const defaults=[...grid.children];
+ let tiles=defaults;
  const overlay=document.getElementById('photo-lightbox');
  const img=document.getElementById('photo-lightbox-img');
  const caption=document.getElementById('photo-lightbox-caption');
  const counter=document.getElementById('photo-lightbox-counter');
  const closeButton=document.getElementById('photo-lightbox-close');
+ const previousButton=$('photo-lightbox-prev');
+ const nextButton=$('photo-lightbox-next');
  let current=0,previousFocus=null,startX=null;
  function show(i){
+   if(!tiles.length)return;
    current=(i+tiles.length)%tiles.length;
    const source=tiles[current].querySelector('img');
    img.src=source.currentSrc||source.src;
    img.alt=source.alt||'Photo du restaurant';
    caption.textContent=tiles[current].querySelector('figcaption')?.textContent||source.alt||'';
    counter.textContent=(current+1)+' / '+tiles.length;
+   previousButton.hidden=nextButton.hidden=tiles.length<2;
  }
  function open(i){
    previousFocus=document.activeElement;
@@ -753,15 +764,50 @@ window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat='))
    overlay.hidden=true;img.removeAttribute('src');syncPageScroll();
    if(previousFocus?.isConnected)previousFocus.focus();
  }
- tiles.forEach((tile,i)=>{
-   tile.tabIndex=0;tile.setAttribute('role','button');
-   tile.setAttribute('aria-label','Agrandir : '+(tile.querySelector('figcaption')?.textContent||'photo'));
-   tile.addEventListener('click',()=>open(i));
-   tile.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open(i)}});
+ function describeTiles(){
+  for(const tile of tiles){
+   tile.tabIndex=0;
+   tile.setAttribute('role','button');
+   tile.setAttribute('aria-label','Agrandir : '+(tile.querySelector('figcaption')?.textContent||'photo du restaurant'));
+  }
+ }
+ function renderGallery(photos){
+  if(!overlay.hidden)close();
+  tiles=photos.length?photos.map(({path,caption})=>{
+   const tile=document.createElement('figure');
+   tile.className='photo-tile';
+   const photo=document.createElement('img');
+   photo.src=path;
+   photo.alt=caption||'Photo du restaurant';
+   photo.loading='lazy';
+   photo.decoding='async';
+   tile.append(photo);
+   if(caption){
+    const text=document.createElement('figcaption');
+    text.textContent=caption;
+    tile.append(text);
+   }
+   return tile;
+  }):defaults;
+  describeTiles();
+  grid.replaceChildren(...tiles);
+ }
+ function openTile(event){
+  const tile=event.target.closest('.photo-tile');
+  if(!tile)return;
+  const index=tiles.indexOf(tile);
+  if(index<0)return;
+  if(event.type==='keydown')event.preventDefault();
+  open(index);
+ }
+ describeTiles();
+ grid.addEventListener('click',openTile);
+ grid.addEventListener('keydown',event=>{
+  if(event.key==='Enter'||event.key===' ')openTile(event);
  });
  closeButton.addEventListener('click',close);
- document.getElementById('photo-lightbox-prev').addEventListener('click',()=>show(current-1));
- document.getElementById('photo-lightbox-next').addEventListener('click',()=>show(current+1));
+ previousButton.addEventListener('click',()=>show(current-1));
+ nextButton.addEventListener('click',()=>show(current+1));
  overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
  document.addEventListener('keydown',e=>{
    if(overlay.hidden)return;
@@ -769,10 +815,10 @@ window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat='))
    if(e.key==='ArrowLeft'){e.preventDefault();show(current-1)}
    if(e.key==='ArrowRight'){e.preventDefault();show(current+1)}
    if(e.key==='Tab'){
-     const controls=[closeButton,document.getElementById('photo-lightbox-prev'),document.getElementById('photo-lightbox-next')];
+     const controls=[closeButton,previousButton,nextButton].filter(button=>!button.hidden);
      const pos=controls.indexOf(document.activeElement);
-     if(e.shiftKey&&pos===0){e.preventDefault();controls[2].focus()}
-     else if(!e.shiftKey&&pos===2){e.preventDefault();controls[0].focus()}
+     if(e.shiftKey&&pos===0){e.preventDefault();controls.at(-1).focus()}
+     else if(!e.shiftKey&&pos===controls.length-1){e.preventDefault();controls[0].focus()}
    }
  });
  overlay.addEventListener('touchstart',e=>{startX=e.changedTouches[0].screenX},{passive:true});
@@ -782,6 +828,102 @@ window.addEventListener('hashchange',()=>{if(location.hash.startsWith('#plat='))
    if(Math.abs(delta)>65)show(current+(delta<0?1:-1));
    startX=null;
  },{passive:true});
+
+ const editor=$('gallery-editor');
+ const files=$('gallery-photo-files');
+ const status=$('gallery-upload-status');
+ const rows=$('gallery-editor-rows');
+ let draft=[];
+ let loaded=false;
+ let uploading=false;
+
+ function drawGalleryEditor(){
+  rows.replaceChildren(...draft.map((photo,index)=>{
+   const row=document.createElement('div');
+   row.className='gallery-editor-row';
+   row.innerHTML='<img alt=""><label>Légende<input maxlength="120" placeholder="Ex. Poulet braisé et accompagnements"></label><button type="button" class="a-btn secondary">Retirer</button>';
+   row.querySelector('img').src=photo.path;
+   const input=row.querySelector('input');
+   input.value=photo.caption;
+   input.setAttribute('aria-label','Légende de la photo '+(index+1));
+   input.addEventListener('input',()=>{photo.caption=input.value});
+   const remove=row.querySelector('button');
+   remove.setAttribute('aria-label','Retirer la photo '+(index+1));
+   remove.addEventListener('click',()=>{
+    draft.splice(index,1);
+    drawGalleryEditor();
+    files.focus();
+   });
+   return row;
+  }));
+ }
+ async function loadGallery(){
+  try{
+   const response=await fetch('/api/gallery',{cache:'no-store'});
+   if(!response.ok)throw Error();
+   const photos=await response.json();
+   if(!Array.isArray(photos)||photos.some(photo=>!photo||!uploadedPhotoPath.test(photo.path)||typeof photo.caption!=='string'))throw Error();
+   draft=photos;
+   if(photos.length)renderGallery(photos);
+   drawGalleryEditor();
+   loaded=true;
+   editor.disabled=false;
+  }catch{
+   status.textContent='Impossible de charger les photos. Actualisez la page pour réessayer.';
+  }
+ }
+ files.addEventListener('change',async()=>{
+  const selected=[...files.files];
+  files.value='';
+  if(!selected.length||uploading||!loaded)return;
+  if(draft.length+selected.length>24){
+   status.textContent='Vous pouvez publier jusqu’à 24 photos.';
+   return;
+  }
+  uploading=true;
+  files.disabled=true;
+  const errors=[];
+  try{
+   for(const [index,file] of selected.entries()){
+    status.textContent=`Envoi de la photo ${index+1} sur ${selected.length}…`;
+    try{
+     const path=await uploadPhoto(file);
+     if(!draft.some(photo=>photo.path===path))draft.push({path,caption:''});
+    }catch(error){
+     errors.push(error instanceof TypeError?'Vérifiez votre connexion puis réessayez.':error.message);
+    }
+   }
+   drawGalleryEditor();
+   status.textContent=errors[0]||'Ajoutez vos légendes puis appuyez sur « Enregistrer ».';
+  }finally{
+   files.disabled=false;
+   uploading=false;
+  }
+ });
+ $('gallery-save').addEventListener('click',async()=>{
+  const publish=$('admin-export');
+  const feedback=$('admin-action-status');
+  if(!loaded||uploading){
+   feedback.textContent=uploading?'Attendez la fin de l’envoi des photos.':'Actualisez la page avant de publier les photos.';
+   return;
+  }
+  publish.disabled=true;
+  editor.disabled=true;
+  try{
+   const photos=draft.map(({path,caption})=>({path,caption:caption.trim()}));
+   await apiSave('/api/gallery',photos);
+   renderGallery(photos);
+   status.textContent='';
+   feedback.textContent=SAVE_CONFIRMATION;
+   expireSaveConfirmation();
+  }catch(error){
+   feedback.textContent=error.message;
+  }finally{
+   editor.disabled=false;
+   publish.disabled=false;
+  }
+ });
+ loadGallery();
 })();
 
 
@@ -937,7 +1079,7 @@ loadMenu();
    buttons.forEach(b=>{const on=b.dataset.adminTab===name;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;if(on&&focus)b.focus()});
    Object.entries(panels).forEach(([key,p])=>p.hidden=key!==name);
    document.getElementById('admin-panel').dataset.currentTab=name;
-   const titles={plats:'Gestion des plats',categories:'Gestion des catégories',horaires:'Horaires & téléphone',annonces:'Gestion des annonces',livraison:'Tarifs de livraison'};
+   const titles={plats:'Gestion des plats',categories:'Gestion des catégories',horaires:'Horaires & téléphone',annonces:'Gestion des annonces',livraison:'Tarifs de livraison',photos:'Galerie de photos'};
    document.getElementById('admin-section-title').textContent=titles[name];
    document.getElementById('admin-export').textContent='Enregistrer';
    document.getElementById('admin-export').setAttribute('aria-label','Publier les modifications de '+titles[name]);

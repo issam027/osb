@@ -58,6 +58,21 @@ export default {async fetch(req,env){const u=new URL(req.url),path=u.pathname;tr
 if(path.startsWith('/api/')){
 if(!env.OSB_KV)return json({error:'KV non configuré'},503);
 if(path==='/api/photos'&&req.method==='POST')return await uploadPhoto(req,env);
+if(path==='/api/gallery'&&req.method==='GET'){
+ const gallery=await env.OSB_KV.get('osb:gallery','json');
+ return json(gallery??[]);
+}
+if(path==='/api/gallery'&&req.method==='PUT'){
+ if(!checkOrigin(req))return json({error:'Origine refusée'},403);
+ if(!await authed(req,env))return json({error:'Connexion requise'},401);
+ const gallery=await parse(req,24000);
+ if(!Array.isArray(gallery)||gallery.length>24||gallery.some(photo=>!photo||typeof photo.path!=='string'||!photoPath.test(photo.path)||typeof photo.caption!=='string'||photo.caption.length>120)||new Set(gallery.map(photo=>photo.path)).size!==gallery.length){
+  return json({error:'Galerie invalide'},400);
+ }
+ await env.OSB_KV.put('osb:gallery',JSON.stringify(gallery.map(({path,caption})=>({path,caption:caption.trim()}))));
+ return json({saved:true});
+}
+
 const photo=path.match(photoPath);
 if(photo&&(req.method==='GET'||req.method==='HEAD')){
  const bytes=await env.OSB_KV.get('osb:photo:'+photo[1],'arrayBuffer');
